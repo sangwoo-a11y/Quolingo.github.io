@@ -6,3 +6,8 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
 .reflection-context{margin:16px 0 0;border:1px solid #486044;border-left:3px solid var(--green);border-radius:12px;background:#1a2c26;padding:17px 19px}.reflection-context h2{font-size:13px;color:#b5d49e;margin:0 0 9px}.reflection-context p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.9;color:#d1dfd5}.verse-row>span:last-child{flex:1}
+
+/* Reserve the former cross slot so the existing stats keep their positions. */
+.stats::before{content:'';width:35px;height:29px;flex:0 0 35px}.mobile-stats{display:none}.week .streak-summary{margin:0;color:#f7a552;font-size:13px}.streak-summary strong{font-size:20px}.sidebar-friend img{margin-bottom:20px}
+@media(max-width:900px){.mobile-stats{display:flex;justify-content:flex-end;gap:24px;max-width:690px;padding:0 35px;margin:17px auto 0;height:35px}.mobile-stats::before{display:none}.layout{margin-top:20px}}
+@media(max-width:580px){.mobile-stats{padding:0 21px;margin-top:12px;font-size:21px}.mobile-stats b{font-size:14px}}

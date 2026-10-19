@@ -29,7 +29,9 @@ function streak() { let n=0, key=completedDay(today)?today:shiftDay(today,-1); w
 function todayCount() { return CHAPTERS.reduce((sum,c)=>sum+readVerses(c.id).length,0); }
 function toast(message) { const el=document.querySelector('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3500); }
 function updateStats() {
-  const count=todayCount(); document.querySelector('#streak').textContent=streak(); document.querySelector('#total').textContent=count;
+  const count=todayCount(), days=streak();
+  document.querySelectorAll('[data-stat="streak"]').forEach(el=>el.textContent=days);
+  document.querySelectorAll('[data-stat="total"]').forEach(el=>el.textContent=count);
   const weekday=new Date(today+'T12:00:00+09:00').getUTCDay();const monday=shiftDay(today,-((weekday+6)%7));
   document.querySelector('#week').innerHTML=['월','화','수','목','금','토','일'].map((label,i)=>{const date=shiftDay(monday,i);return `<div class="day ${date===today?'today':''} ${completedDay(date)?'checked':''}">${label}<i>${completedDay(date)?'✓':'·'}</i></div>`;}).join('');
 }
@@ -40,7 +42,7 @@ function render(target=page) {
 function star() { return '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2 4.3 8.7 9.6 1.4-6.9 6.7 1.6 9.5L16 23.8l-8.6 4.5L9 18.8l-6.9-6.7 9.6-1.4Z" fill="currentColor"/></svg>'; }
 function home() {
   const next=CHAPTERS.find(c=>readVerses(c.id).length<c.verses.length)?.id || CHAPTERS[0].id;
-  content.innerHTML=`<section class="unit"><div><small>말씀 여행 · 시편</small><h1>한 장씩, 마음에 새기는 말씀</h1></div></section><div class="journey-intro"><span>시편과 함께 걷기</span><small>한 장 = 하나의 버튼 · 오늘 읽은 절만큼 채워져요</small></div><div class="chapter-path">${CHAPTERS.map((c,i)=>{const count=readVerses(c.id).length,percent=count/c.verses.length*100,active=c.id===next;return `<div class="chapter-stop stop-${i} ${active?'is-current':''}">${active?'<span class="start-bubble">'+(count?'이어 읽기':'시작하기')+'</span>':''}<button class="chapter-node ${count===c.verses.length?'complete':''} ${active?'current':''}" data-chapter="${c.id}" aria-label="${c.book} ${c.chapter}장, ${c.verses.length}절 중 ${count}절 읽음" style="--fill:${percent}%"><span class="node-core">${count===c.verses.length?'✓':star()}</span></button><div class="chapter-caption"><strong>${c.book} ${c.chapter}장</strong><span>${count} / ${c.verses.length}절</span></div></div>`;}).join('')}<div class="path-friends"><img src="assets/friends.png" alt="말씀 여행을 응원하는 뮤니, 코, 타스"></div><div class="path-sprout" aria-hidden="true">🌱</div></div><div class="section-divider"><span>말씀을 읽고, 삶으로 걸어요</span></div><p class="path-note">시편 6개 장 · 개역한글<br>버튼을 누르고 한 장의 말씀을 읽어 보세요.</p>`;
+  content.innerHTML=`<section class="unit"><div><small>말씀 여행 · 시편</small><h1>한 장씩, 마음에 새기는 말씀</h1></div></section><div class="chapter-path">${CHAPTERS.map((c,i)=>{const count=readVerses(c.id).length,percent=count/c.verses.length*100,active=c.id===next;return `<div class="chapter-stop stop-${i} ${active?'is-current':''}">${active?'<span class="start-bubble">'+(count?'이어 읽기':'시작하기')+'</span>':''}<button class="chapter-node ${count===c.verses.length?'complete':''} ${active?'current':''}" data-chapter="${c.id}" aria-label="${c.book} ${c.chapter}장, ${c.verses.length}절 중 ${count}절 읽음" style="--fill:${percent}%"><span class="node-core">${count===c.verses.length?'✓':star()}</span></button><div class="chapter-caption"><strong>${c.book} ${c.chapter}장</strong><span>${count} / ${c.verses.length}절</span></div></div>`;}).join('')}<div class="path-friends"><img src="assets/friends.png" alt="말씀 여행을 응원하는 뮤니, 코, 타스"></div><div class="path-sprout" aria-hidden="true">🌱</div></div><p class="path-note">시편 6개 장 · 개역한글</p>`;
 }
 function openChapter(id) { selected=id;stage=0;render('editor'); window.scrollTo({top:0,behavior:'instant'}); }
 function readingContext(c, r) {
