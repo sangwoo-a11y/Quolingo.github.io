@@ -21,8 +21,8 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site/assets
-          cp index.html style.css app.js _site/
-          cp assets/friends.svg _site/assets/
+          cp index.html style.css app.js chapters.js _site/
+          cp assets/friends.png _site/assets/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
