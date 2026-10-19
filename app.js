@@ -12,7 +12,7 @@ function load(key) {
 data = load(KEY); legacy = load(LEGACY_KEY);
 // Keep existing chapter journals as full-chapter sessions; retain original fields.
 for (const day of Object.values(data)) {
-  for (const c of CHAPTERS) {
+  for (const c of ALL_CHAPTERS) {
     const entry = day?.[c.id];
     if (!entry || typeof entry !== 'object' || entry.sessions) continue;
     const previous = Object.fromEntries(fields.map(f => [f, entry[f] || '']));
@@ -26,7 +26,7 @@ let today = dayKey();
 function chapter() { return CHAPTERS.find(c => c.id === selected) || CHAPTERS[0]; }
 function record(id = selected, date = today) { return data[date]?.[id] || {}; }
 function readVerses(id = selected, date = today) {
-  const c = CHAPTERS.find(c => c.id === id);
+  const c = ALL_CHAPTERS.find(c => c.id === id);
   return [...new Set(Array.isArray(record(id,date).read) ? record(id,date).read : [])].filter(n => Number.isInteger(n) && n >= 1 && n <= c.verses.length).sort((a,b) => a-b);
 }
 function rangeKey() { return `${rangeStart}-${rangeEnd}`; }
@@ -48,9 +48,9 @@ function updateRecord(changes) {
   catch { toast('브라우저 저장 실패 · 나의 묵상에서 파일로 백업해 주세요.'); return false; }
 }
 function escapeHTML(value) { return String(value ?? '').replace(/[&<>"']/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x])); }
-function completedDay(date) { return Boolean(legacy[date]?.completed || CHAPTERS.some(c => record(c.id,date).completed || Object.values(record(c.id,date).sessions || {}).some(r=>r.completed))); }
+function completedDay(date) { return Boolean(legacy[date]?.completed || ALL_CHAPTERS.some(c => record(c.id,date).completed || Object.values(record(c.id,date).sessions || {}).some(r=>r.completed))); }
 function streak() { let n=0, key=completedDay(today)?today:shiftDay(today,-1); while(completedDay(key)){n++;key=shiftDay(key,-1);} return n; }
-function todayCount() { return CHAPTERS.reduce((sum,c)=>sum+readVerses(c.id).length,0); }
+function todayCount() { return ALL_CHAPTERS.reduce((sum,c)=>sum+readVerses(c.id).length,0); }
 function toast(message) { const el=document.querySelector('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3500); }
 function updateStats() {
   const count=todayCount(), days=streak();
@@ -66,7 +66,7 @@ function render(target=page) {
 function star() { return '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2 4.3 8.7 9.6 1.4-6.9 6.7 1.6 9.5L16 23.8l-8.6 4.5L9 18.8l-6.9-6.7 9.6-1.4Z" fill="currentColor"/></svg>'; }
 function home() {
   const next=CHAPTERS.find(c=>readVerses(c.id).length<c.verses.length)?.id || CHAPTERS[0].id;
-  content.innerHTML=`<section class="unit"><div><small>말씀 여행 · 시편</small><h1>한 장씩, 마음에 새기는 말씀</h1></div></section><div class="chapter-path">${CHAPTERS.map((c,i)=>{const count=readVerses(c.id).length,percent=count/c.verses.length*100,active=c.id===next;return `<div class="chapter-stop stop-${i} ${active?'is-current':''}">${active?'<span class="start-bubble">'+(count?'이어 읽기':'시작하기')+'</span>':''}<button class="chapter-node ${count===c.verses.length?'complete':''} ${active?'current':''}" data-chapter="${c.id}" aria-label="${c.book} ${c.chapter}장, ${c.verses.length}절 중 ${count}절 읽음" style="--fill:${percent}%"><span class="node-core">${count===c.verses.length?'✓':star()}</span></button><div class="chapter-caption"><strong>${c.book} ${c.chapter}장</strong><span>${count} / ${c.verses.length}절</span></div></div>`;}).join('')}<div class="path-friends"><img src="assets/friends.png" alt="말씀 여행을 응원하는 뮤니, 코, 타스"></div><div class="path-sprout" aria-hidden="true">🌱</div></div><p class="path-note">시편 6개 장 · 개역한글</p>`;
+  content.innerHTML=`<section class="unit"><div><small>말씀 여행 · 여호수아</small><h1>한 장씩, 마음에 새기는 말씀</h1></div></section><div class="chapter-path">${CHAPTERS.map((c,i)=>{const count=readVerses(c.id).length,percent=count/c.verses.length*100,active=c.id===next;return `<div class="chapter-stop stop-${i % 6} ${active?'is-current':''}">${active?'<span class="start-bubble">'+(count?'이어 읽기':'시작하기')+'</span>':''}<button class="chapter-node ${count===c.verses.length?'complete':''} ${active?'current':''}" data-chapter="${c.id}" aria-label="${c.book} ${c.chapter}장, ${c.verses.length}절 중 ${count}절 읽음" style="--fill:${percent}%"><span class="node-core">${count===c.verses.length?'✓':star()}</span></button></div>`;}).join('')}<div class="path-friends"><img src="assets/friends.png" alt="말씀 여행을 응원하는 뮤니, 코, 타스"></div><div class="path-sprout" aria-hidden="true">🌱</div></div><p class="path-note">여호수아 1–24장 · 개역한글</p>`;
 }
 function openChapter(id, start, end) {
   if (!CHAPTERS.some(c=>c.id===id)) return;
@@ -84,21 +84,21 @@ function selection() {
 function readingContext(c, r) {
   const previousField = stage === 2 ? 'observation' : stage === 3 ? 'interpretation' : null;
   const previousLabel = stage === 2 ? '관찰' : '해석';
-  const scripture = `<details class="reading-excerpt" ${stage >= 2 ? 'open' : ''}><summary>읽은 말씀 다시 보기 · ${reference(c)}</summary>${selectedVerses().map(n=>`<p><sup>${n}</sup> ${c.verses[n-1]}</p>`).join('')}</details>`;
+  const scripture = `<details class="reading-excerpt" ${stage >= 2 ? 'open' : ''}><summary>읽은 말씀 다시 보기 · ${reference(c)}</summary>${selectedVerses().map(n=>`<p><sup>${n}</sup> ${escapeHTML(c.verses[n-1])}</p>`).join('')}</details>`;
   const reflection = previousField ? `<section class="reflection-context" aria-label="나의 ${previousLabel} 다시 보기"><h2>내가 ${previousLabel}한 내용</h2><p>${escapeHTML(r[previousField] || '아직 작성한 내용이 없어요.')}</p></section>` : '';
   return scripture + reflection;
 }
 function editor() {
   const c=chapter(),r=sessionRecord();
-  content.innerHTML=`<div class="editor-head"><button class="back" data-action="reselect" aria-label="말씀 범위 다시 선택">←</button><span>${reference(c)} · ${c.title}</span><span>${stage+1} / 4</span></div><div class="editor-progress">${[0,1,2,3].map(i=>`<span class="${i<=stage?'filled':''}"></span>`).join('')}</div>${stage===0?`<div class="reading-title"><div><div class="eyebrow">TODAY’S WORD</div><h1>${reference(c)}</h1><p>${c.title} · 개역한글</p></div><span class="reading-count">${selectedVerses().length}절</span></div><ol class="verses">${selectedVerses().map(n=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${n}</span><span>${c.verses[n-1]}</span></li>`).join('')}</ol><button class="primary wide" id="next" data-action="next">말씀을 읽었어요 →</button>`:`<div class="eyebrow">QT JOURNAL · ${reference(c)}</div><h1>${parts[stage-1]}하기</h1>${readingContext(c,r)}<label for="reflection" class="sr-only">나의 ${parts[stage-1]}</label><textarea id="reflection">${escapeHTML(r[fields[stage-1]])}</textarea><div class="actions"><button class="text-button" data-action="previous">← 이전</button><button class="primary" id="next" data-action="next" ${r[fields[stage-1]]?.trim()?'':'disabled'}>${stage===3?'묵상 완료하기 ✓':'다음으로 →'}</button></div>`}`;
+  content.innerHTML=`<div class="editor-head"><button class="back" data-action="reselect" aria-label="말씀 범위 다시 선택">←</button><span>${reference(c)} · ${c.title}</span><span>${stage+1} / 4</span></div><div class="editor-progress">${[0,1,2,3].map(i=>`<span class="${i<=stage?'filled':''}"></span>`).join('')}</div>${stage===0?`<div class="reading-title"><div><div class="eyebrow">TODAY’S WORD</div><h1>${reference(c)}</h1><p>${c.title} · 개역한글</p></div><span class="reading-count">${selectedVerses().length}절</span></div><ol class="verses">${selectedVerses().map(n=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${n}</span><span>${escapeHTML(c.verses[n-1])}</span></li>`).join('')}</ol><button class="primary wide" id="next" data-action="next">말씀을 읽었어요 →</button>`:`<div class="eyebrow">QT JOURNAL · ${reference(c)}</div><h1>${parts[stage-1]}하기</h1>${readingContext(c,r)}<label for="reflection" class="sr-only">나의 ${parts[stage-1]}</label><textarea id="reflection">${escapeHTML(r[fields[stage-1]])}</textarea><div class="actions"><button class="text-button" data-action="previous">← 이전</button><button class="primary" id="next" data-action="next" ${r[fields[stage-1]]?.trim()?'':'disabled'}>${stage===3?'묵상 완료하기 ✓':'다음으로 →'}</button></div>`}`;
 }
 function journalCard(date,c,r,old=false) {
   const title=old?'이전 말씀 묵상':reference(c,r.start,r.end);
-  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료 ✓':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date===today?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}">기록 이어 쓰기 →</button>`:''}</article>`;
+  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료 ✓':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date===today&&CHAPTERS.some(item=>item.id===c.id)?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}">기록 이어 쓰기 →</button>`:''}</article>`;
 }
 function journal() {
  const dates=[...new Set([...Object.keys(data),...Object.keys(legacy)])].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse();
- const cards=dates.map(date=>CHAPTERS.map(c=>Object.values(record(c.id,date).sessions||{}).filter(r=>validRange(c,r.start,r.end)&&((r.read||[]).length||fields.some(f=>r[f]))).map(r=>journalCard(date,c,r)).join('')).join('')+(legacy[date]&&fields.some(f=>legacy[date][f])?journalCard(date,null,legacy[date],true):'')).join('');
+ const cards=dates.map(date=>ALL_CHAPTERS.map(c=>Object.values(record(c.id,date).sessions||{}).filter(r=>validRange(c,r.start,r.end)&&((r.read||[]).length||fields.some(f=>r[f]))).map(r=>journalCard(date,c,r)).join('')).join('')+(legacy[date]&&fields.some(f=>legacy[date][f])?journalCard(date,null,legacy[date],true):'')).join('');
  content.innerHTML=`<div class="eyebrow">MY QUIET TIME</div><h1>나의 묵상</h1><p class="intro">한 장의 말씀, 나만의 이야기.</p><button class="outline-button" data-action="export">↓ 전체 기록 백업</button>${cards||'<div class="empty">📖<p>아직 기록이 없어요.<br>말씀 여행에서 첫 장을 열어 보세요.</p><button class="primary" data-page="home">말씀 읽으러 가기</button></div>'}`;
 }
 function activity() {const dates=[...new Set([...Object.keys(data),...Object.keys(legacy)])].filter(completedDay);content.innerHTML=`<div class="eyebrow">MY JOURNEY</div><h1>말씀과 걸어온 발자국</h1><div class="activity-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속 묵상</p></section><section class="card"><span>💎</span><h2>${todayCount()}절</h2><p>오늘 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${dates.length}일</h2><p>전체 묵상 일수</p></section></div><h2>오늘의 장별 읽기</h2>${CHAPTERS.map(c=>`<button class="chapter-summary" data-chapter="${c.id}"><span>${c.book} ${c.chapter}장 <small>${c.title}</small></span><b>${readVerses(c.id).length} / ${c.verses.length}절 →</b></button>`).join('')}`;}
