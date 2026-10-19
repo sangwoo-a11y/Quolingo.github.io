@@ -1,5 +1,7 @@
 const KEY = 'quolingo-chapters-v2';
 const LEGACY_KEY = 'quolingo-journal-v1';
+const PROFILE_KEY = 'quolingo-profile-v1';
+const AVATARS = {muni:{emoji:'🦊',name:'뮤니'},ko:{emoji:'🐥',name:'코'},tas:{emoji:'🐻',name:'타스'}};
 const fields = ['observation', 'interpretation', 'application'];
 const parts = ['관찰', '해석', '적용'];
 const content = document.querySelector('#content');
@@ -10,6 +12,8 @@ function load(key) {
   catch { return {}; }
 }
 data = load(KEY); legacy = load(LEGACY_KEY);
+const savedProfile=load(PROFILE_KEY);
+let profile={name:typeof savedProfile.name==='string'?savedProfile.name.slice(0,20):'',avatar:Object.hasOwn(AVATARS,savedProfile.avatar)?savedProfile.avatar:'ko'};
 // Keep existing chapter journals as full-chapter sessions; retain original fields.
 for (const day of Object.values(data)) {
   for (const c of ALL_CHAPTERS) {
@@ -84,12 +88,16 @@ function updateStats() {
   const count=todayCount(), days=streak();
   document.querySelectorAll('[data-stat="streak"]').forEach(el=>el.textContent=days);
   document.querySelectorAll('[data-stat="total"]').forEach(el=>el.textContent=count);
+  document.querySelectorAll('[data-profile-avatar]').forEach(el=>el.textContent=profile.name?AVATARS[profile.avatar].emoji:'👤');
   const weekday=new Date(today+'T12:00:00+09:00').getUTCDay();const monday=shiftDay(today,-((weekday+6)%7));
-  document.querySelector('#week').innerHTML=['월','화','수','목','금','토','일'].map((label,i)=>{const date=shiftDay(monday,i);return `<div class="day ${date===today?'today':''} ${completedDay(date)?'checked':''}">${label}<i>${completedDay(date)?'✓':'·'}</i></div>`;}).join('');
+  document.querySelector('#week').innerHTML=['월','화','수','목','금','토','일'].map((label,i)=>{
+    const date=shiftDay(monday,i),done=completedDay(date);
+    return `<div class="day ${date===today?'today':''} ${done?'checked':''}" data-date="${date}" aria-label="${date} ${label}요일 ${done?'묵상 완료':'미완료'}"><span>${label}</span><i aria-hidden="true">${done?'✓':'·'}</i></div>`;
+  }).join('');
 }
 function render(target=page) {
   page=target; document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===page || ['editor','selection'].includes(page)&&b.dataset.page==='home'));
-  ({home,selection,editor,journal,activity,success}[page] || home)();updateStats();
+  ({home,selection,editor,journal,activity,success,account}[page] || home)();updateStats();
 }
 function star() { return '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2 4.3 8.7 9.6 1.4-6.9 6.7 1.6 9.5L16 23.8l-8.6 4.5L9 18.8l-6.9-6.7 9.6-1.4Z" fill="currentColor"/></svg>'; }
 function home() {
@@ -97,7 +105,8 @@ function home() {
   content.innerHTML=`<section class="unit"><div><small>말씀 여행 · 여호수아</small><h1>${month}</h1></div></section><div class="chapter-path month-path">${dates.map((date,i)=>{
     const done=completedDay(date),active=date===today,future=date>today;
     const weekday=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'}).format(new Date(date+'T12:00:00+09:00'));
-    return `<div class="chapter-stop stop-${i%6} week-tone-${monthWeek(date)} ${active?'is-current':''}">${active?'<span class="start-bubble">오늘</span>':''}<button class="chapter-node day-node ${done?'complete':''} ${active?'current':''}" data-action="open-day" data-date="${date}" ${future?'disabled':''} ${active?'aria-current="date"':''} aria-label="${date} ${done?'묵상 완료':future?'예정':'말씀 선택'}" style="--fill:${dayReadingPercent(date)}%"><span class="node-core">${done?'✓':star()}</span></button><time class="day-caption" datetime="${date}">${dateLabel(date)} <span>(${weekday})</span></time></div>`;
+    const divider=i>0&&monthWeek(date)!==monthWeek(dates[i-1])?`<div class="week-divider" role="separator" aria-label="${monthWeek(date)+1}주차 시작"><span>${monthWeek(date)+1}주차</span></div>`:'';
+    return `${divider}<div class="chapter-stop stop-${i%6} week-tone-${monthWeek(date)}"><button class="chapter-node day-node ${done?'complete':''}" data-action="open-day" data-date="${date}" ${future?'disabled':''} ${active?'aria-current="date"':''} aria-label="${date} ${done?'묵상 완료':future?'예정':'말씀 선택'}" style="--fill:${dayReadingPercent(date)}%"><span class="node-core">${done?'✓':star()}</span></button><time class="day-caption" datetime="${date}">${dateLabel(date)} <span>(${weekday})</span></time></div>`;
   }).join('')}<div class="path-friends"><img src="assets/friends.png" alt="말씀 여행을 응원하는 뮤니, 코, 타스"></div><div class="path-sprout" aria-hidden="true">🌱</div></div>`;
 }
 function openDay(date) {
@@ -140,6 +149,11 @@ function journal() {
 }
 function activity() {const dates=[...new Set([...Object.keys(data),...Object.keys(legacy)])].filter(completedDay);content.innerHTML=`<div class="eyebrow">MY JOURNEY</div><h1>말씀과 걸어온 발자국</h1><div class="activity-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속 묵상</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${dates.length}일</h2><p>전체 묵상 일수</p></section></div><h2>오늘의 장별 읽기</h2>${CHAPTERS.map(c=>`<button class="chapter-summary" data-chapter="${c.id}"><span>${c.book} ${c.chapter}장 <small>${c.title}</small></span><b>${readVerses(c.id).length} / ${c.verses.length}절 →</b></button>`).join('')}`;}
 function success() {content.innerHTML=`<section class="success"><div class="eyebrow">WELL DONE!</div><div class="medal">🏅</div><h1>말씀을 마음에 심었어요!</h1><p>${reference()} · ${selectedVerses().length}절 묵상 완료<br>오늘의 작은 실천을 응원해요.</p><img src="assets/friends.png" alt="축하하는 뮤니, 코, 타스"><section class="card"><h3>🔥 ${streak()}일 연속 묵상</h3><p>읽기 ${readVerses(selected,selectedDate).length} / ${chapter().verses.length}절 · ${readVerses(selected,selectedDate).length===chapter().verses.length?'한 장을 모두 읽었어요!':'남은 말씀도 언제든 이어 읽을 수 있어요.'}</p></section><button class="primary wide" data-page="home">말씀 여행 계속하기</button><button class="text-button" data-page="journal">나의 묵상 보기 →</button></section>`;}
+function account() {
+  const avatar=AVATARS[profile.avatar];
+  const completedDates=[...new Set([...Object.keys(data),...Object.keys(legacy)])].filter(date=>validDay(date)&&date<=today&&completedDay(date));
+  content.innerHTML=`<h1>계정</h1><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatar.emoji}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>이 브라우저에 저장되는 프로필</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span><i aria-hidden="true">${value.emoji}</i>${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><div class="activity-stats account-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${completedDates.length}일</h2><p>묵상한 날</p></section></div><button class="outline-button" data-action="export">↓ 전체 기록 백업</button>`;
+}
 document.addEventListener('change',e=>{
   const id=e.target.id;
   if(!['chapter-select','start-verse','end-verse'].includes(id))return;
@@ -153,6 +167,14 @@ document.addEventListener('change',e=>{
   render('selection');document.getElementById(id).focus();
 });
 document.addEventListener('submit',e=>{
+  if(e.target.id==='account-form'){
+    e.preventDefault();const values=new FormData(e.target),name=String(values.get('name')||'').trim(),avatar=String(values.get('avatar')||'');
+    if(!name||name.length>20||!Object.hasOwn(AVATARS,avatar))return;
+    const nextProfile={name,avatar};
+    try{localStorage.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;render('account');toast('프로필을 저장했어요.');}
+    catch{toast('프로필을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.');}
+    return;
+  }
   if(e.target.id!=='passage-selection')return;
   e.preventDefault();if(!validRange(chapter(),rangeStart,rangeEnd))return;
   stage=0;render('editor');window.scrollTo({top:0,behavior:'instant'});
@@ -171,7 +193,7 @@ document.addEventListener('click',e=>{
   else if(fields.every(f=>sessionRecord()[f]?.trim())&&sessionRecord().read?.length){const ok=updateRecord({completed:true});render('success');if(!ok)toast('기록이 메모리에만 있어요. 파일로 백업해 주세요.');}
   else toast('읽은 절과 관찰·해석·적용을 확인해 주세요.');
  }
- if(b.dataset.action==='export'){const blob=new Blob([JSON.stringify({version:3,exportedAt:new Date().toISOString(),chapters:data,legacyEntries:legacy},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`quolingo-${today}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('전체 기록을 파일로 백업했어요.');}
+ if(b.dataset.action==='export'){const blob=new Blob([JSON.stringify({version:3,exportedAt:new Date().toISOString(),profile,chapters:data,legacyEntries:legacy},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`quolingo-${today}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('전체 기록을 파일로 백업했어요.');}
 });
 function refreshDay(){if(today!==dayKey()){today=dayKey();selectedDate=today;stage=0;render('home');toast('새 하루의 말씀 여행을 시작해요. 이전 기록은 나의 묵상에 있어요.');}}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDay();});setInterval(refreshDay,30000);
