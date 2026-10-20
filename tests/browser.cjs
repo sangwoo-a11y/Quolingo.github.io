@@ -93,7 +93,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.match(await p.locator('#content').textContent(),/누적 5장/);
   assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/3절/);
   await nav('home');
-  assert.equal(await p.locator('.month-path .friend-character').count(),5);
+  assert.equal(await p.locator('.month-path .friend-character').count(),7);
   assert.equal(await p.locator('.week-companion .friends-cast').first().evaluate(el=>getComputedStyle(el).transform),'none');
   const hands=p.locator('.month-path .friend-hand');
   const names=await hands.evaluateAll(elements=>elements.map(el=>getComputedStyle(el).animationName));

@@ -24,19 +24,19 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await home();await today.dispatchEvent('click');await account();await p.clock.runFor(300);
   assert.equal(await p.locator('#qt-book').isVisible(),true);
   await home();await today.focus();await p.keyboard.press('Enter');await p.clock.runFor(280);await p.locator('#chapter-select').waitFor();
-  // Each calendar week gets one independent companion, on alternating sides of its button.
+  // Companions sit at each week's midpoint, with occasional pairs and alternating sides.
   for(const [date,count] of [['2027-02-20',4],['2026-03-20',6],['2026-10-20',5]]){
    await p.clock.setSystemTime(new Date(date+'T03:00:00Z'));await p.reload();
    assert.equal(await p.locator('.path-week').count(),count);
    for(const width of [320,390,768,1024,1440]){
     await p.setViewportSize({width,height:1000});
     const geometry=await p.locator('.path-week').evaluateAll(weeks=>weeks.map(week=>{
-     const companion=week.querySelector('.week-companion'),button=week.querySelector('.day-node');
+     const companion=week.querySelector('.week-companion'),stops=[...week.querySelectorAll('.chapter-stop')],button=companion.parentElement.querySelector('.day-node');
      const box=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};};
-     return {side:companion.dataset.side,character:companion.dataset.character,count:companion.querySelectorAll('.friend-character').length,friend:box(companion),button:box(button),others:[...week.querySelectorAll('.day-node')].map(box)};
+     return {anchor:stops.indexOf(companion.parentElement),days:stops.length,side:companion.dataset.side,character:companion.dataset.character,count:companion.querySelectorAll('.friend-character').length,friend:box(companion),button:box(button),others:[...week.querySelectorAll('.day-node')].map(box)};
     }));
     for(const [i,week] of geometry.entries()){
-     assert.equal(week.count,1);assert.equal(week.character,['ko','muni','tas'][i%3]);
+     assert.equal(week.anchor,Math.floor((week.days-1)/2));assert.equal(week.count,i%3===1?2:1);assert.equal(week.character,['ko','muni','tas'][i%3]);
      assert.equal(week.side,i%2===0?'right':'left');
      assert.ok(week.side==='right'?week.friend.left>week.button.right:week.friend.right<week.button.left);
      assert.ok(week.friend.left>=0&&week.friend.right<=width,'companion remains inside '+width+'px viewport');
@@ -55,6 +55,6 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await p.emulateMedia({reducedMotion:'reduce'});await today.click();await p.locator('#word-chapter').waitFor();
   assert.ok((await p.locator('#word-chapter option').allTextContents()).every(text=>text.startsWith('로마서')));
   assert.deepEqual(errors,[]);
-  console.log('PASS: visible depth/shine/press, keyboard activation, cancelled navigation, 4/5/6-week calendars, alternating single companions without collisions at 320–1440px, migrated independent book settings and reduced-motion routing.');
+  console.log('PASS: visible depth/shine/press, keyboard activation, cancelled navigation, 4/5/6-week calendars, midweek solo and paired companions on alternating sides without collisions at 320–1440px, migrated independent book settings and reduced-motion routing.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

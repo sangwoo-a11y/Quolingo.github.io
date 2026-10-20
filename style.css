@@ -36,7 +36,7 @@
 @media(max-width:580px){.path-friends{width:175px;right:-4px}}
 @media(prefers-reduced-motion:reduce){.friend-motion,.friend-hand{animation:none!important;transform:none!important}}
 
-/* One companion for each week, anchored beside that week's first date button. */
+/* Companions sit near the middle of each week; selected weeks have a pair. */
 .path-week{position:relative}.month-path{padding-top:8px}.path-week:first-child .week-divider{margin-top:24px}.week-companion{position:absolute;top:-9px;width:clamp(84px,26vw,136px);pointer-events:none;z-index:0}.companion-right{left:calc(100% + 9px)}.companion-left{right:calc(100% + 9px)}.friends-cast.solo{display:block}.friends-cast.solo>.friend-character{width:100%;margin:0}.account-form label[for=qt-book]{margin-top:24px}.side-bottom{margin-top:auto;padding-top:25px}
 
 /* The ring stays in place while the button face travels down into its base. */
@@ -54,3 +54,5 @@
 @keyframes button-press{0%{transform:translateY(-4px);filter:brightness(1)}45%,70%{transform:translateY(4px) scale(.98);filter:brightness(1.25);box-shadow:inset 0 2px 0 #ffffff88,0 2px 0 var(--week-shadow),0 0 26px color-mix(in srgb,var(--week-color) 55%,transparent)}100%{transform:translateY(-4px);filter:brightness(1.08)}}
 @keyframes button-ring-glow{0%,100%{box-shadow:0 7px 0 #0b171c,0 12px 17px #0004}55%{box-shadow:0 4px 0 #0b171c,0 0 28px color-mix(in srgb,var(--week-color) 60%,transparent)}}
 @media(prefers-reduced-motion:reduce){.day-node,.day-node .node-core,.day-node .node-core::after{animation:none!important}.day-node .node-core::after{display:none}}
+
+.chapter-stop.has-companion{left:0}.week-companion.has-duo{top:-35px}.friends-cast.duo{flex-direction:column;align-items:flex-start}.friends-cast.duo>.friend-character{width:78%;margin:0}.friends-cast.duo>.friend-character+ .friend-character{align-self:flex-end;margin-top:-28%}

@@ -149,13 +149,14 @@ function star() { return '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m
 function checkMark() { return '<svg class="completion-check" viewBox="0 0 40 40" aria-hidden="true"><path d="m8 20 8 8 16-17" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
 // Body and waving arm are separate sprite regions, joined at each shoulder.
 function friendsArt(label, characterId) {
+  const members=characterId?(Array.isArray(characterId)?characterId:[characterId]):null;
   const cast = [
     {id:'muni',view:'-20 -30 500 470',body:[380,0,390,400],arm:[912,126,192,181],joint:[300,250],offset:[-38,-154]},
     {id:'ko',view:'-20 -40 390 365',body:[474,397,242,291],arm:[906,474,166,150],joint:[185,218],offset:[-34,-126]},
     {id:'tas',view:'-10 -40 470 420',body:[413,690,340,334],arm:[904,747,194,185],joint:[300,170],offset:[-36,-155]}
   ];
   const sprite=(region,x=0,y=0)=>`<svg x="${x}" y="${y}" width="${region[2]}" height="${region[3]}" viewBox="${region.join(' ')}" overflow="hidden"><image href="assets/character-parts.png" width="1536" height="1024"/></svg>`;
-  return `<div class="friends-cast ${characterId?'solo':''}" role="img" aria-label="${escapeHTML(label)}">${cast.filter(c=>!characterId||c.id===characterId).map(c=>`<svg class="friend-character friend-${c.id}" viewBox="${c.view}" aria-hidden="true" focusable="false"><g class="friend-motion"><g transform="translate(${c.joint.join(' ')})"><g class="friend-hand">${sprite(c.arm,...c.offset)}</g></g>${sprite(c.body)}</g></svg>`).join('')}</div>`;
+  return `<div class="friends-cast ${members?(members.length===1?'solo':'duo'):''}" role="img" aria-label="${escapeHTML(label)}">${(members?members.map(id=>cast.find(c=>c.id===id)):cast).map(c=>`<svg class="friend-character friend-${c.id}" viewBox="${c.view}" aria-hidden="true" focusable="false"><g class="friend-motion"><g transform="translate(${c.joint.join(' ')})"><g class="friend-hand">${sprite(c.arm,...c.offset)}</g></g>${sprite(c.body)}</g></svg>`).join('')}</div>`;
 }
 function home() {
   const dates=monthDates(),groups=[];
@@ -163,12 +164,13 @@ function home() {
   const currentBook=mode==='qt'?qtBook():readingBook();
   const month=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'long'}).format(new Date(today+'T12:00:00+09:00'));
   content.innerHTML=`<section class="unit"><div><small>말씀 여행 · ${currentBook.name}</small><h1>${month}</h1></div></section><div class="mode-tabs" role="group" aria-label="읽기 방식"><button data-action="mode" data-mode="qt" aria-pressed="${mode==='qt'}">QT</button><button data-action="mode" data-mode="reading" aria-pressed="${mode==='reading'}">말씀</button></div><p class="mobile-goal">오늘 말씀 ${readChapters().length} / 목표 ${profile.dailyGoal}장</p><div class="chapter-path month-path">${groups.map((weekDates,week)=>{
-    const friend=['ko','muni','tas'][week%3],side=week%2===0?'right':'left';
+    const order=['ko','muni','tas'],friend=order[week%3],side=week%2===0?'right':'left';
+    const members=week%3===1?[friend,order[(week+1)%3]]:[friend],middle=Math.floor((weekDates.length-1)/2);
     return `<section class="path-week" data-week="${week+1}" aria-label="${week+1}주차"><div class="week-divider" role="separator" aria-label="${week+1}주차 시작"><span>${week+1}주차</span></div>${weekDates.map((date,i)=>{
       const state=dailyState(date),done=mode==='qt'?qtCompletedDay(date):state.readingDone,active=date===today,future=date>today,qtOff=mode==='qt'&&state.qtOff;
       const weekday=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'}).format(new Date(date+'T12:00:00+09:00'));
-      const companion=i===0?`<div class="week-companion companion-${side}" data-character="${friend}" data-side="${side}">${friendsArt(`${week+1}주차 · 인사하는 ${AVATARS[friend].name}`,friend)}</div>`:'';
-      return `<div class="chapter-stop stop-${i%6} week-tone-${week}"><button class="chapter-node day-node ${done?'complete':''}" data-action="open-day" data-date="${date}" ${future||qtOff?'disabled':''} ${active?'aria-current="date"':''} aria-label="${date} ${qtOff?'QT 쉬는 날':done?(mode==='qt'?'QT 완료':'말씀 목표 완료'):future?'예정':mode==='qt'?'QT 말씀 선택':'읽을 말씀 선택'}" style="--fill:${mode==='qt'?dayReadingPercent(date):Math.min(100,readChapters(date).length/daySettings(date).dailyGoal*100)}%"><span class="node-core">${done?checkMark():star()}</span></button><time class="day-caption" datetime="${date}">${dateLabel(date)} <span>(${weekday})</span></time>${companion}</div>`;
+      const companion=i===middle?`<div class="week-companion companion-${side} ${members.length>1?'has-duo':''}" data-character="${friend}" data-side="${side}">${friendsArt(`${week+1}주차 · 인사하는 ${members.map(id=>AVATARS[id].name).join(', ')}`,members)}</div>`:'';
+      return `<div class="chapter-stop stop-${i%6} week-tone-${week} ${i===middle?'has-companion':''}"><button class="chapter-node day-node ${done?'complete':''}" data-action="open-day" data-date="${date}" ${future||qtOff?'disabled':''} ${active?'aria-current="date"':''} aria-label="${date} ${qtOff?'QT 쉬는 날':done?(mode==='qt'?'QT 완료':'말씀 목표 완료'):future?'예정':mode==='qt'?'QT 말씀 선택':'읽을 말씀 선택'}" style="--fill:${mode==='qt'?dayReadingPercent(date):Math.min(100,readChapters(date).length/daySettings(date).dailyGoal*100)}%"><span class="node-core">${done?checkMark():star()}</span></button><time class="day-caption" datetime="${date}">${dateLabel(date)} <span>(${weekday})</span></time>${companion}</div>`;
     }).join('')}</section>`;
   }).join('')}</div>`;
 }
