@@ -1,6 +1,6 @@
 // 개역한글 · KorRV, scrollmapper/bible_databases @ e1b254cef86d0e65b1a5d1a94b8b112d0f296a2c
 // Complete Joshua: 24 chapters, 658 verses. See THIRD_PARTY_NOTICES.md.
-const CHAPTERS = [
+const JOSHUA_CHAPTERS = [
   {
     "id": "joshua-1",
     "book": "여호수아",
@@ -897,4 +897,7 @@ const ARCHIVED_CHAPTERS = [
  '호흡이 있는 자마다 여호와를 찬양할지어다 할렐루야']}
 ];
 
+// Retain the original Joshua wording and chapter IDs used by existing journals.
+const BOOKS = [...OLD_TESTAMENT_BOOKS.map(book=>book.id==='joshua'?{...book,chapters:JOSHUA_CHAPTERS}:book), ...NEW_TESTAMENT_BOOKS];
+const CHAPTERS = BOOKS.flatMap(book=>book.chapters);
 const ALL_CHAPTERS = [...CHAPTERS, ...ARCHIVED_CHAPTERS];
