@@ -32,6 +32,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
    await nav('activity');
   };
   assert.equal((await p.locator('.nav[data-page=home]').textContent()).trim(),'🏡홈');
+  assert.equal((await p.locator('.nav[data-page=activity]').textContent()).trim(),'🏅현황');
   assert.doesNotMatch(await p.locator('#content').textContent(),/말씀 여행/);
   await nav('activity');
   assert.equal(await day('2026-10-20').getAttribute('aria-pressed'),'true');
@@ -43,6 +44,14 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.match(await p.locator('.calendar-detail').textContent(),/창세기 1장/);
   assert.match(await p.locator('.calendar-detail').textContent(),/요한복음 1장/);
   assert.equal(await book('genesis').textContent(),'3장');assert.equal(await book('john').textContent(),'2장');
+  assert.equal(await p.locator('.book-reading h2').textContent(),'말씀 읽기 현황');
+  const genesis=p.locator('.book-reading-list [data-book=genesis]');
+  assert.equal(await genesis.locator('.read-chapter-list').isVisible(),false);
+  await genesis.locator('summary').click();
+  assert.deepEqual(await genesis.locator('.read-chapter').allTextContents(),['1장2회','2장']);
+  await genesis.locator('summary').press('Enter');assert.equal(await genesis.locator('.read-chapter-list').isVisible(),false);
+  await p.locator('.book-reading-list [data-book=john] summary').click();
+  assert.deepEqual(await p.locator('.book-reading-list [data-book=john] .read-chapter').allTextContents(),['1장2회']);
   assert.equal(await p.locator('.chapter-summary').count(),0);
   assert.doesNotMatch(await p.locator('#content').textContent(),/오늘의 QT 읽기/);
   // Cancelling one chapter changes the goal/streak/calendar, without changing QT.
@@ -99,9 +108,14 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
    if(width<=580){
     const logo=await p.locator('.mobile-logo').boundingBox();assert.ok(logo&&logo.x<30&&logo.y<30);
     await select('2026-10-19');assert.match(await p.locator('.calendar-detail').textContent(),/창세기/);
+    await genesis.locator('summary').click();assert.equal(await genesis.locator('.read-chapter-list').isVisible(),true);
    }
    if(width===390)await p.screenshot({path:'/tmp/quolingo-activity-mobile.png',fullPage:true});
   }
+  await nav('account');
+  assert.equal(await p.locator('.account-stats .card').count(),1);
+  assert.equal(await p.locator('.account-stats p').textContent(),'연속학습');
+  assert.doesNotMatch(await p.locator('#content').textContent(),/그동안 읽은 말씀|완료한 날/);
   assert.deepEqual(errors,[]);
   console.log('PASS: monthly calendar/history, per-book cumulative counts, same-day/old-day/reader cancellation, persistence, goal/streak recalculation, QT preservation, failed storage rollback, mobile logo and 320–1440px layouts.');
  }finally{await browser.close();}
