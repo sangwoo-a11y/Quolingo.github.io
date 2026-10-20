@@ -63,10 +63,12 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('.verse-row').count(),2);await p.locator('#next').click();
   const reflection=['관찰 기록','해석 기록','적용 기록'];
   for(let i=0;i<3;i++){
-   if(i>0){assert.equal(await p.locator('.reading-excerpt[open]').count(),1);assert.match(await p.locator('.reflection-context').textContent(),new RegExp(reflection[i-1]));}
+   if(i>0){assert.equal(await p.locator('.reading-excerpt[open]').count(),0);await p.locator('.reading-excerpt summary').click();assert.equal(await p.locator('.reading-excerpt p').first().isVisible(),true);assert.match(await p.locator('.reflection-context').textContent(),new RegExp(reflection[i-1]));}
    await p.locator('#reflection').fill(reflection[i]);await p.locator('#next').click();
   }
   assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
+  assert.equal(await p.locator('.success [data-page=journal]').count(),0);
+  assert.equal(await p.locator('.success [data-page=home]').textContent(),'홈 화면으로 돌아가기');
   await p.locator('.success [data-action="open-share"]').click();
   assert.equal(await p.locator('#share-dialog').isVisible(),true);
   assert.equal(await p.locator('#share-application').isChecked(),false);
