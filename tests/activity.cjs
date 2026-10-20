@@ -113,9 +113,8 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
    if(width===390)await p.screenshot({path:'/tmp/quolingo-activity-mobile.png',fullPage:true});
   }
   await nav('account');
-  assert.equal(await p.locator('.account-stats .card').count(),1);
-  assert.equal(await p.locator('.account-stats p').textContent(),'연속학습');
-  assert.doesNotMatch(await p.locator('#content').textContent(),/그동안 읽은 말씀|완료한 날/);
+  assert.equal(await p.locator('.account-stats').count(),0);
+  assert.doesNotMatch(await p.locator('#content').textContent(),/연속학습|그동안 읽은 말씀|완료한 날/);
   assert.deepEqual(errors,[]);
   console.log('PASS: monthly calendar/history, per-book cumulative counts, same-day/old-day/reader cancellation, persistence, goal/streak recalculation, QT preservation, failed storage rollback, mobile logo and 320–1440px layouts.');
  }finally{await browser.close();}
