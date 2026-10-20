@@ -31,7 +31,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await share.click();const dialog=p.locator('#share-dialog'),preview=p.locator('#share-preview'),apply=p.locator('#share-application');
   assert.equal(await dialog.isVisible(),true);assert.equal(await apply.isChecked(),false);
   const without=await preview.inputValue();assert.ok(without.startsWith('날짜: 2026-10-20'));
-  assert.match(without,/마태복음 5:3–4/);assert.match(without,/심령이 가난한/);
+  assert.match(without,/마태복음 5:3–4/);assert.doesNotMatch(without,/심령이 가난한|애통하는 자/);
   assert.ok(without.indexOf('관찰\n')<without.indexOf('해석\n'));assert.ok(!without.includes('PRIVATE_APPLICATION'));assert.ok(!without.includes('미완료 내용'));
   assert.equal(await p.evaluate(()=>window.injected),undefined);assert.equal(await p.evaluate(()=>window.shared.length),0);
   await p.locator('[data-action=send-share]').click();assert.equal(await p.evaluate(()=>window.shared[0].text),without);
@@ -63,6 +63,6 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await apply.check();await p.screenshot({path:'/tmp/quolingo-share-desktop.png'});
   assert.equal(await p.evaluate(()=>localStorage.getItem('quolingo-chapters-v2')),original);
   assert.deepEqual(errors,[]);
-  console.log('PASS: completed-only sharing, native payload order/range/date, explicit application opt-in/reset, safe literal text, cancel/error handling, clipboard and manual fallback, historical records, mobile dialog and unchanged saved QT.');
+  console.log('PASS: completed-only sharing, native payload order/reference/date without Bible text, explicit application opt-in/reset, safe literal text, cancel/error handling, clipboard and manual fallback, historical records, mobile dialog and unchanged saved QT.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -167,7 +167,7 @@ function home() {
   content.innerHTML=`<section class="unit"><div><small>말씀 여행 · ${currentBook.name}</small><h1>${month}</h1></div></section><div class="mode-tabs" role="group" aria-label="읽기 방식"><button data-action="mode" data-mode="qt" aria-pressed="${mode==='qt'}">QT</button><button data-action="mode" data-mode="reading" aria-pressed="${mode==='reading'}">말씀</button></div><p class="mobile-goal">오늘 말씀 ${readChapters().length} / 목표 ${profile.dailyGoal}장</p><div class="chapter-path month-path">${groups.map((weekDates,week)=>{
     const order=['ko','muni','tas'],friend=order[week%3],side=week%2===0?'right':'left';
     const members=week%3===1?[friend,order[(week+1)%3]]:[friend],middle=Math.floor((weekDates.length-1)/2);
-    return `<section class="path-week" data-week="${week+1}" aria-label="${week+1}주차"><div class="week-divider" role="separator" aria-label="${week+1}주차 시작"><span>${week+1}주차</span></div>${weekDates.map((date,i)=>{
+    return `<section class="path-week ${week%2?'reverse':''}" data-week="${week+1}" aria-label="${week+1}주차"><div class="week-divider" role="separator" aria-label="${week+1}주차 시작"><span>${week+1}주차</span></div>${weekDates.map((date,i)=>{
       const state=dailyState(date),done=mode==='qt'?qtCompletedDay(date):state.readingDone,active=date===today,future=date>today,qtOff=mode==='qt'&&state.qtOff;
       const weekday=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'}).format(new Date(date+'T12:00:00+09:00'));
       const companion=i===middle?`<div class="week-companion companion-${side} ${members.length>1?'has-duo':''}" data-character="${friend}" data-preferred-side="${side}" data-side="${side}">${friendsArt(`${week+1}주차 · 인사하는 ${members.map(id=>AVATARS[id].name).join(', ')}`,members)}</div>`:'';
@@ -181,7 +181,7 @@ function positionCompanions() {
     const path=companion.closest('.month-path').getBoundingClientRect();
     const button=companion.parentElement.querySelector('.day-node').getBoundingClientRect();
     const left=Math.max(0,button.left-path.left),right=Math.max(0,path.right-button.right);
-    const side=Math.abs(left-right)<1?companion.dataset.preferredSide:left>right?'left':'right';
+    const side=companion.dataset.preferredSide;
     const inset=Math.min(18,path.width*.03),gap=28;
     const available=(side==='left'?left:right)-gap-inset;
     const width=Math.min(172,Math.max(112,innerWidth*.31),Math.max(0,available));
@@ -246,7 +246,7 @@ function success() {content.innerHTML=`<section class="success"><div class="eyeb
 function openShare({id=selected,date=selectedDate,start=rangeStart,end=rangeEnd}={}) {
   const c=CHAPTER_BY_ID.get(id),r=record(id,date).sessions?.[`${start}-${end}`];
   if(!c||!validDay(date)||!validRange(c,start,end)||!r?.completed){toast('완료한 묵상만 공유할 수 있어요.');return;}
-  shareSnapshot={date,reference:reference(c,start,end),verses:Array.from({length:end-start+1},(_,i)=>({number:start+i,text:c.verses[start+i-1]})),...Object.fromEntries(fields.map(field=>[field,String(r[field]||'')]))};
+  shareSnapshot={date,reference:reference(c,start,end),...Object.fromEntries(fields.map(field=>[field,String(r[field]||'')]))};
   const nativeShare=typeof navigator.share==='function';
   document.querySelector('#share-application').checked=false;
   document.querySelector('[data-action="send-share"]').textContent=nativeShare?'공유하기':'내용 복사하기';

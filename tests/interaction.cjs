@@ -41,6 +41,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
     }));
     for(const [i,week] of geometry.entries()){
      assert.ok(Math.abs(week.anchor-Math.floor((week.days-1)/2))<=1);assert.equal(week.count,i%3===1?2:1);assert.equal(week.character,['ko','muni','tas'][i%3]);
+     assert.equal(week.side,i%2===0?'right':'left');
      const left=week.button.left-week.path.left,right=week.path.right-week.button.right;
      if(Math.abs(left-right)>1)assert.equal(week.side,left>right?'left':'right');
      assert.ok((week.side==='right'?week.friend.left-week.button.right:week.button.left-week.friend.right)>=27,'companions have a generous gap from the button');
@@ -60,6 +61,6 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await p.emulateMedia({reducedMotion:'reduce'});await today.click();await p.locator('#word-chapter').waitFor();
   assert.ok((await p.locator('#word-chapter option').allTextContents()).every(text=>text.startsWith('로마서')));
   assert.deepEqual(errors,[]);
-  console.log('PASS: visible depth/shine/press, keyboard activation, cancelled navigation, 4/5/6-week calendars, midweek solo and paired companions in the more spacious side without collisions at 320–1440px, migrated independent book settings and reduced-motion routing.');
+  console.log('PASS: visible depth/shine/press, keyboard activation, cancelled navigation, 4/5/6-week calendars, alternating midweek solo/paired companions with mirrored curves and generous spacing at 320–1440px, migrated independent book settings and reduced-motion routing.');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

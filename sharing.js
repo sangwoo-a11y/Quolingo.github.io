@@ -3,7 +3,7 @@ const QTShare = {
   text(entry, includeApplication = false) {
     const sections = [
       `날짜: ${entry.date}`,
-      `말씀: ${entry.reference}\n${entry.verses.map(verse=>`${verse.number} ${verse.text}`).join('\n')}`,
+      `말씀: ${entry.reference}`,
       `관찰\n${entry.observation}`,
       `해석\n${entry.interpretation}`
     ];
