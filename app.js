@@ -165,15 +165,29 @@ function home() {
   const month=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'long'}).format(new Date(today+'T12:00:00+09:00'));
   content.innerHTML=`<section class="unit"><div><small>말씀 여행 · ${currentBook.name}</small><h1>${month}</h1></div></section><div class="mode-tabs" role="group" aria-label="읽기 방식"><button data-action="mode" data-mode="qt" aria-pressed="${mode==='qt'}">QT</button><button data-action="mode" data-mode="reading" aria-pressed="${mode==='reading'}">말씀</button></div><p class="mobile-goal">오늘 말씀 ${readChapters().length} / 목표 ${profile.dailyGoal}장</p><div class="chapter-path month-path">${groups.map((weekDates,week)=>{
     const order=['ko','muni','tas'],friend=order[week%3],side=week%2===0?'right':'left';
-    const members=week%3===1?[friend,order[(week+1)%3]]:[friend],middle=Math.floor((weekDates.length-1)/2);
+    const members=week%3===1?[friend,order[(week+1)%3]]:[friend],middle=Math.floor((weekDates.length-1)/2)+(week%2===1&&weekDates.length===7?1:0);
     return `<section class="path-week" data-week="${week+1}" aria-label="${week+1}주차"><div class="week-divider" role="separator" aria-label="${week+1}주차 시작"><span>${week+1}주차</span></div>${weekDates.map((date,i)=>{
       const state=dailyState(date),done=mode==='qt'?qtCompletedDay(date):state.readingDone,active=date===today,future=date>today,qtOff=mode==='qt'&&state.qtOff;
       const weekday=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'}).format(new Date(date+'T12:00:00+09:00'));
-      const companion=i===middle?`<div class="week-companion companion-${side} ${members.length>1?'has-duo':''}" data-character="${friend}" data-side="${side}">${friendsArt(`${week+1}주차 · 인사하는 ${members.map(id=>AVATARS[id].name).join(', ')}`,members)}</div>`:'';
+      const companion=i===middle?`<div class="week-companion companion-${side} ${members.length>1?'has-duo':''}" data-character="${friend}" data-preferred-side="${side}" data-side="${side}">${friendsArt(`${week+1}주차 · 인사하는 ${members.map(id=>AVATARS[id].name).join(', ')}`,members)}</div>`:'';
       return `<div class="chapter-stop stop-${i%6} week-tone-${week} ${i===middle?'has-companion':''}"><button class="chapter-node day-node ${done?'complete':''}" data-action="open-day" data-date="${date}" ${future||qtOff?'disabled':''} ${active?'aria-current="date"':''} aria-label="${date} ${qtOff?'QT 쉬는 날':done?(mode==='qt'?'QT 완료':'말씀 목표 완료'):future?'예정':mode==='qt'?'QT 말씀 선택':'읽을 말씀 선택'}" style="--fill:${mode==='qt'?dayReadingPercent(date):Math.min(100,readChapters(date).length/daySettings(date).dailyGoal*100)}%"><span class="node-core">${done?checkMark():star()}</span></button><time class="day-caption" datetime="${date}">${dateLabel(date)} <span>(${weekday})</span></time>${companion}</div>`;
     }).join('')}</section>`;
   }).join('')}</div>`;
+  positionCompanions();
 }
+function positionCompanions() {
+  document.querySelectorAll('.week-companion').forEach(companion=>{
+    const path=companion.closest('.month-path').getBoundingClientRect();
+    const button=companion.parentElement.querySelector('.day-node').getBoundingClientRect();
+    const left=Math.max(0,button.left-path.left),right=Math.max(0,path.right-button.right);
+    const side=Math.abs(left-right)<1?companion.dataset.preferredSide:left>right?'left':'right';
+    const available=(side==='left'?left:right)-16;
+    const width=Math.min(136,Math.max(84,innerWidth*.26),Math.max(0,available));
+    companion.classList.toggle('companion-left',side==='left');companion.classList.toggle('companion-right',side==='right');
+    companion.dataset.side=side;companion.style.width=width+'px';companion.style.setProperty('--anchor-half',button.width/2+'px');
+  });
+}
+window.addEventListener('resize',positionCompanions);
 function openDay(date) {
   if(!validDay(date)||date>today)return;
   if(mode==='reading'){selectedDate=date;selected=(readingChapters().find(c=>!readChapters(date).includes(c.id))||readingChapters()[0]).id;render('wordSelection');window.scrollTo({top:0,behavior:'instant'});return;}
@@ -317,4 +331,5 @@ if(savedProfile.completionRule==='either') {
 if(!validBookId(savedProfile.qtBookId)||!validBookId(savedProfile.readingBookId)){
   try { localStorage.setItem(PROFILE_KEY,JSON.stringify(profile)); } catch { /* Keep preferences in memory when storage is unavailable. */ }
 }
+document.querySelector('.sidebar-friend').innerHTML=friendsArt('손을 흔들며 인사하는 뮤니, 코, 타스');
 render();

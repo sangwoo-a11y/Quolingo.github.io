@@ -37,24 +37,25 @@
 @media(prefers-reduced-motion:reduce){.friend-motion,.friend-hand{animation:none!important;transform:none!important}}
 
 /* Companions sit near the middle of each week; selected weeks have a pair. */
-.path-week{position:relative}.month-path{padding-top:8px}.path-week:first-child .week-divider{margin-top:24px}.week-companion{position:absolute;top:-9px;width:clamp(84px,26vw,136px);pointer-events:none;z-index:0}.companion-right{left:calc(100% + 9px)}.companion-left{right:calc(100% + 9px)}.friends-cast.solo{display:block}.friends-cast.solo>.friend-character{width:100%;margin:0}.account-form label[for=qt-book]{margin-top:24px}.side-bottom{margin-top:auto;padding-top:25px}
+.path-week{position:relative}.month-path{padding-top:8px}.path-week:first-child .week-divider{margin-top:24px}.week-companion{position:absolute;top:-9px;width:clamp(84px,26vw,136px);pointer-events:none;z-index:0}.companion-right{left:calc(50% + var(--anchor-half,47.5px) + 12px)}.companion-left{right:calc(50% + var(--anchor-half,47.5px) + 12px)}.friends-cast.solo{display:block}.friends-cast.solo>.friend-character{width:100%;margin:0}.account-form label[for=qt-book]{margin-top:24px}.side-bottom{margin-top:0;padding-top:0}
 
 /* The ring stays in place while the button face travels down into its base. */
 .day-node{box-shadow:0 7px 0 #0b171c,0 12px 17px #0004;transform:none;touch-action:manipulation;transition:box-shadow .18s}
-.day-node .node-core,.day-node.complete .node-core{position:relative;overflow:hidden;transform:translateY(-4px);background-image:linear-gradient(150deg,#ffffff38,transparent 48%,#00000016);box-shadow:inset 0 2px 0 #ffffff55,0 10px 0 var(--week-shadow),0 13px 12px #0004;transition:transform .12s,box-shadow .12s,filter .12s}
+.day-node:is(:active,.is-held){transform:none}
+.day-node .node-core,.day-node.complete .node-core{position:relative;overflow:hidden;transform:translateY(-3px);background-image:linear-gradient(150deg,#ffffff38,transparent 48%,#00000016);box-shadow:inset 0 2px 0 #ffffff55,0 8px 0 var(--week-shadow),0 11px 12px #0004;transition:transform .12s,box-shadow .12s,filter .12s}
 .day-node .node-core::after{content:'';position:absolute;inset:-30% -70%;background:linear-gradient(110deg,transparent 36%,#ffffff80 49%,transparent 62%);transform:translateX(-80%);opacity:0;pointer-events:none}
-.day-node:not(:disabled):focus-visible .node-core{transform:translateY(0);filter:brightness(1.12);box-shadow:inset 0 2px 0 #ffffff70,0 6px 0 var(--week-shadow),0 0 24px color-mix(in srgb,var(--week-color) 38%,transparent)}
-@media(hover:hover){.day-node:not(:disabled):hover .node-core{transform:translateY(0);filter:brightness(1.12);box-shadow:inset 0 2px 0 #ffffff70,0 6px 0 var(--week-shadow),0 0 24px color-mix(in srgb,var(--week-color) 38%,transparent)}}
-.day-node:not(:disabled):is(:active,.is-held) .node-core{transform:translateY(6px) scale(.98);box-shadow:inset 0 2px 0 #ffffff88,0 0 0 var(--week-shadow),0 0 26px color-mix(in srgb,var(--week-color) 55%,transparent);filter:brightness(1.2)}
+.day-node:not(:disabled):focus-visible .node-core{transform:translateY(-1px);filter:brightness(1.12);box-shadow:inset 0 2px 0 #ffffff70,0 6px 0 var(--week-shadow),0 0 24px color-mix(in srgb,var(--week-color) 38%,transparent)}
+@media(hover:hover){.day-node:not(:disabled):hover .node-core{transform:translateY(-1px);filter:brightness(1.12);box-shadow:inset 0 2px 0 #ffffff70,0 6px 0 var(--week-shadow),0 0 24px color-mix(in srgb,var(--week-color) 38%,transparent)}}
+.day-node:not(:disabled):is(:active,.is-held) .node-core{transform:translateY(1px);box-shadow:inset 0 2px 0 #ffffff88,0 4px 0 var(--week-shadow),0 0 26px color-mix(in srgb,var(--week-color) 55%,transparent);filter:brightness(1.2)}
 .day-node:not(:disabled):focus-visible .node-core::after{animation:button-shine .7s ease-out}
 @media(hover:hover){.day-node:not(:disabled):hover .node-core::after{animation:button-shine .7s ease-out}}
 .day-node.is-opening{animation:button-ring-glow .24s ease-out}.day-node.is-opening .node-core{animation:button-press .24s ease-in-out both}.day-node.is-opening .node-core::after{animation:button-shine .24s ease-out both}
 :is(.primary,.mode-tabs button){position:relative;overflow:hidden;background-image:linear-gradient(150deg,#ffffff18,transparent 50%);box-shadow:0 3px 0 #0003;transition:transform .12s,box-shadow .12s,filter .12s}
-@media(hover:hover){:is(.primary,.mode-tabs button):not(:disabled):hover{transform:translateY(1.5px);filter:brightness(1.12);box-shadow:0 1.5px 0 #0003,0 0 18px #83cb3130}}
-:is(.primary,.mode-tabs button):not(:disabled):is(:active,.is-held){transform:translateY(5px);box-shadow:0 0 0 #0003,0 0 20px #83cb3145;filter:brightness(1.18)}
+@media(hover:hover){:is(.primary,.mode-tabs button):not(:disabled):hover{transform:translateY(1px);filter:brightness(1.12);box-shadow:0 2px 0 #0003,0 0 18px #83cb3130}}
+:is(.primary,.mode-tabs button):not(:disabled):is(:active,.is-held){transform:translateY(2.5px);box-shadow:0 0 0 #0003,0 0 20px #83cb3145;filter:brightness(1.18)}
 @keyframes button-shine{0%{transform:translateX(-80%);opacity:0}25%{opacity:.9}100%{transform:translateX(80%);opacity:0}}
-@keyframes button-press{0%{transform:translateY(0);filter:brightness(1.12)}45%,100%{transform:translateY(6px) scale(.98);filter:brightness(1.25);box-shadow:inset 0 2px 0 #ffffff88,0 0 0 var(--week-shadow),0 0 26px color-mix(in srgb,var(--week-color) 55%,transparent)}}
-@keyframes button-ring-glow{0%,100%{box-shadow:0 7px 0 #0b171c,0 12px 17px #0004}55%{box-shadow:0 4px 0 #0b171c,0 0 28px color-mix(in srgb,var(--week-color) 60%,transparent)}}
+@keyframes button-press{0%{transform:translateY(-1px);filter:brightness(1.12)}45%,100%{transform:translateY(1px);filter:brightness(1.25);box-shadow:inset 0 2px 0 #ffffff88,0 4px 0 var(--week-shadow),0 0 26px color-mix(in srgb,var(--week-color) 55%,transparent)}}
+@keyframes button-ring-glow{0%,100%{box-shadow:0 7px 0 #0b171c,0 12px 17px #0004}55%{box-shadow:0 6px 0 #0b171c,0 0 28px color-mix(in srgb,var(--week-color) 60%,transparent)}}
 @media(prefers-reduced-motion:reduce){.day-node,.day-node .node-core,.day-node .node-core::after{animation:none!important}.day-node .node-core::after{display:none}}
 
-.chapter-stop.has-companion{left:0}.week-companion.has-duo{top:-35px}.friends-cast.duo{flex-direction:column;align-items:flex-start}.friends-cast.duo>.friend-character{width:78%;margin:0}.friends-cast.duo>.friend-character+ .friend-character{align-self:flex-end;margin-top:-28%}
+.week-companion.has-duo{top:-35px}.friends-cast.duo{flex-direction:column;align-items:flex-start}.friends-cast.duo>.friend-character{width:78%;margin:0}.friends-cast.duo>.friend-character+ .friend-character{align-self:flex-end;margin-top:-28%}
