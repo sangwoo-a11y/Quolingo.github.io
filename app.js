@@ -9,6 +9,7 @@ const fields = ['observation', 'interpretation', 'application'];
 const parts = ['관찰', '해석', '적용'];
 const content = document.querySelector('#content');
 let readingData = {}, mode = 'qt', openingDayTimer = null, heldButton = null;
+let shareSnapshot=null,shareBusy=false;
 let data = {}, legacy = {}, page = 'home', stage = 0, selected = CHAPTERS[0].id;
 let rangeStart = 1, rangeEnd = CHAPTERS[0].verses.length;
 function load(key) {
@@ -135,7 +136,7 @@ function updateStats() {
   const weekday=new Date(today+'T12:00:00+09:00').getUTCDay();const monday=shiftDay(today,-((weekday+6)%7));
   document.querySelector('#week').innerHTML=['월','화','수','목','금','토','일'].map((label,i)=>{
     const date=shiftDay(monday,i),state=dailyState(date),done=state.complete;
-    return `<div class="day ${date===today?'today':''} ${done?'checked':''}" data-date="${date}" aria-label="${date} ${label}요일 ${done?'하루 완료':state.rest?'QT 쉬는 날':'미완료'}"><span>${label}</span><i aria-hidden="true">${done?'✓':state.rest?'–':'·'}</i></div>`;
+    return `<div class="day ${date===today?'today':''} ${done?'checked':''}" data-date="${date}" aria-label="${date} ${label}요일 ${done?'하루 완료':state.rest?'QT 쉬는 날':'미완료'}"><span>${label}</span><i aria-hidden="true">${done?checkMark():state.rest?'–':'·'}</i></div>`;
   }).join('');
   const goal=profile.dailyGoal,read=readChapters().length;
   document.querySelector('#reading-goal').innerHTML=`<div class="card-heading"><h3>오늘의 말씀 목표</h3><span>📖</span></div><p class="goal-count"><strong>${read}</strong> / ${goal}장</p><p class="goal-label">목표 ${goal}장 · 오늘 ${read}장 읽음</p><progress max="${goal}" value="${Math.min(read,goal)}" aria-label="오늘 말씀 읽기 ${read}장, 목표 ${goal}장"></progress>`;
@@ -165,7 +166,7 @@ function home() {
   const month=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'long'}).format(new Date(today+'T12:00:00+09:00'));
   content.innerHTML=`<section class="unit"><div><small>말씀 여행 · ${currentBook.name}</small><h1>${month}</h1></div></section><div class="mode-tabs" role="group" aria-label="읽기 방식"><button data-action="mode" data-mode="qt" aria-pressed="${mode==='qt'}">QT</button><button data-action="mode" data-mode="reading" aria-pressed="${mode==='reading'}">말씀</button></div><p class="mobile-goal">오늘 말씀 ${readChapters().length} / 목표 ${profile.dailyGoal}장</p><div class="chapter-path month-path">${groups.map((weekDates,week)=>{
     const order=['ko','muni','tas'],friend=order[week%3],side=week%2===0?'right':'left';
-    const members=week%3===1?[friend,order[(week+1)%3]]:[friend],middle=Math.floor((weekDates.length-1)/2)+(week%2===1&&weekDates.length===7?1:0);
+    const members=week%3===1?[friend,order[(week+1)%3]]:[friend],middle=Math.floor((weekDates.length-1)/2);
     return `<section class="path-week" data-week="${week+1}" aria-label="${week+1}주차"><div class="week-divider" role="separator" aria-label="${week+1}주차 시작"><span>${week+1}주차</span></div>${weekDates.map((date,i)=>{
       const state=dailyState(date),done=mode==='qt'?qtCompletedDay(date):state.readingDone,active=date===today,future=date>today,qtOff=mode==='qt'&&state.qtOff;
       const weekday=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'}).format(new Date(date+'T12:00:00+09:00'));
@@ -181,10 +182,14 @@ function positionCompanions() {
     const button=companion.parentElement.querySelector('.day-node').getBoundingClientRect();
     const left=Math.max(0,button.left-path.left),right=Math.max(0,path.right-button.right);
     const side=Math.abs(left-right)<1?companion.dataset.preferredSide:left>right?'left':'right';
-    const available=(side==='left'?left:right)-16;
-    const width=Math.min(136,Math.max(84,innerWidth*.26),Math.max(0,available));
+    const inset=Math.min(18,path.width*.03),gap=28;
+    const available=(side==='left'?left:right)-gap-inset;
+    const width=Math.min(172,Math.max(112,innerWidth*.31),Math.max(0,available));
+    const parent=companion.parentElement.getBoundingClientRect();
+    const x=side==='left'?path.left+inset:path.right-inset-width;
     companion.classList.toggle('companion-left',side==='left');companion.classList.toggle('companion-right',side==='right');
-    companion.dataset.side=side;companion.style.width=width+'px';companion.style.setProperty('--anchor-half',button.width/2+'px');
+    companion.dataset.side=side;companion.style.width=width+'px';
+    companion.style.left=(x-parent.left)+'px';companion.style.right='auto';
   });
 }
 window.addEventListener('resize',positionCompanions);
@@ -229,7 +234,7 @@ function editor() {
 }
 function journalCard(date,c,r,old=false) {
   const title=old?'이전 말씀 묵상':reference(c,r.start,r.end);
-  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료 ✓':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date<=today&&CHAPTERS.some(item=>item.id===c.id)?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">기록 이어 쓰기 →</button>`:''}</article>`;
+  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료 ✓':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date<=today&&CHAPTERS.some(item=>item.id===c.id)?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">기록 이어 쓰기 →</button>`:''}${!old&&r.completed?`<button class="text-button entry-share" data-action="share-entry" data-share-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">묵상 공유하기 ↗</button>`:''}</article>`;
 }
 function journal() {
  const dates=[...new Set([...Object.keys(data),...Object.keys(legacy),...Object.keys(readingData)])].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse();
@@ -237,7 +242,59 @@ function journal() {
  content.innerHTML=`<div class="eyebrow">MY QUIET TIME</div><h1>나의 묵상</h1><p class="intro">한 장의 말씀, 나만의 이야기.</p><button class="outline-button" data-action="export">↓ 전체 기록 백업</button>${cards||'<div class="empty">📖<p>아직 기록이 없어요.<br>말씀 여행에서 첫 장을 열어 보세요.</p><button class="primary" data-page="home">말씀 읽으러 가기</button></div>'}`;
 }
 function activity() {const dates=[...new Set([...Object.keys(data),...Object.keys(legacy),...Object.keys(readingData)])].filter(completedDay);content.innerHTML=`<div class="eyebrow">MY JOURNEY</div><h1>말씀과 걸어온 발자국</h1><div class="activity-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${dates.length}일</h2><p>하루 완료 일수</p></section></div><section class="card"><h2>말씀 읽기</h2><p>오늘 ${readChapters().length} / 목표 ${profile.dailyGoal}장 · 누적 ${Object.keys(readingData).filter(date=>validDay(date)&&date<=today).reduce((sum,date)=>sum+readChapters(date).length,0)}장</p></section><h2>${qtBook().name} · 오늘의 QT 읽기</h2>${qtChapters().map(c=>`<button class="chapter-summary" data-chapter="${c.id}"><span>${c.book} ${c.chapter}장 <small>${c.title}</small></span><b>${readVerses(c.id).length} / ${c.verses.length}절 →</b></button>`).join('')}`;}
-function success() {content.innerHTML=`<section class="success"><div class="eyebrow">WELL DONE!</div><div class="medal">🏅</div><h1>말씀을 마음에 심었어요!</h1><p>${reference()} · ${selectedVerses().length}절 묵상 완료<br>오늘의 작은 실천을 응원해요.</p>${friendsArt('손을 흔들며 축하하는 뮤니, 코, 타스')}<section class="card"><h3>🔥 ${streak()}일 연속학습</h3><p>읽기 ${readVerses(selected,selectedDate).length} / ${chapter().verses.length}절 · ${readVerses(selected,selectedDate).length===chapter().verses.length?'한 장을 모두 읽었어요!':'남은 말씀도 언제든 이어 읽을 수 있어요.'}</p></section><button class="primary wide" data-page="home">말씀 여행 계속하기</button><button class="text-button" data-page="journal">나의 묵상 보기 →</button></section>`;}
+function success() {content.innerHTML=`<section class="success"><div class="eyebrow">WELL DONE!</div><div class="medal">🏅</div><h1>말씀을 마음에 심었어요!</h1><p>${reference()} · ${selectedVerses().length}절 묵상 완료<br>오늘의 작은 실천을 응원해요.</p>${friendsArt('손을 흔들며 축하하는 뮤니, 코, 타스')}<section class="card"><h3>🔥 ${streak()}일 연속학습</h3><p>읽기 ${readVerses(selected,selectedDate).length} / ${chapter().verses.length}절 · ${readVerses(selected,selectedDate).length===chapter().verses.length?'한 장을 모두 읽었어요!':'남은 말씀도 언제든 이어 읽을 수 있어요.'}</p></section><button class="primary wide" data-action="open-share">묵상 공유하기 ↗</button><button class="outline-button wide success-continue" data-page="home">말씀 여행 계속하기</button><button class="text-button" data-page="journal">나의 묵상 보기 →</button></section>`;}
+function openShare({id=selected,date=selectedDate,start=rangeStart,end=rangeEnd}={}) {
+  const c=CHAPTER_BY_ID.get(id),r=record(id,date).sessions?.[`${start}-${end}`];
+  if(!c||!validDay(date)||!validRange(c,start,end)||!r?.completed){toast('완료한 묵상만 공유할 수 있어요.');return;}
+  shareSnapshot={date,reference:reference(c,start,end),verses:Array.from({length:end-start+1},(_,i)=>({number:start+i,text:c.verses[start+i-1]})),...Object.fromEntries(fields.map(field=>[field,String(r[field]||'')]))};
+  const nativeShare=typeof navigator.share==='function';
+  document.querySelector('#share-application').checked=false;
+  document.querySelector('[data-action="send-share"]').textContent=nativeShare?'공유하기':'내용 복사하기';
+  document.querySelector('[data-action="copy-share"]').hidden=!nativeShare;
+  document.querySelector('#share-note').textContent=nativeShare?'공유 메뉴에서 카카오톡 등 보낼 앱을 선택하세요.':'내용을 복사해 카카오톡 등에 붙여넣어 공유할 수 있어요.';
+  document.querySelector('#share-feedback').textContent='';
+  updateSharePreview();setShareBusy(false);
+  document.querySelector('#share-dialog').showModal();document.body.classList.add('sharing-open');
+}
+function updateSharePreview() {
+  if(shareSnapshot)document.querySelector('#share-preview').value=QTShare.text(shareSnapshot,document.querySelector('#share-application').checked);
+}
+function setShareBusy(busy) {
+  shareBusy=busy;
+  document.querySelectorAll('#share-application,[data-action="send-share"],[data-action="copy-share"]').forEach(el=>el.disabled=busy);
+}
+async function copyShareText() {
+  if(!shareSnapshot||shareBusy)return;
+  const text=document.querySelector('#share-preview').value;
+  setShareBusy(true);
+  try {
+    if(!navigator.clipboard?.writeText)throw new Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(text);
+    document.querySelector('#share-feedback').textContent='복사했어요. 카카오톡 등에 붙여넣어 공유하세요.';
+  } catch {
+    const preview=document.querySelector('#share-preview');preview.focus();preview.select();
+    document.querySelector('#share-feedback').textContent='내용을 선택했어요. 직접 복사해 공유해 주세요.';
+  } finally {setShareBusy(false);}
+}
+async function sendShare() {
+  if(!shareSnapshot||shareBusy)return;
+  if(typeof navigator.share!=='function'){await copyShareText();return;}
+  const payload={title:`${shareSnapshot.date} 묵상 · ${shareSnapshot.reference}`,text:document.querySelector('#share-preview').value};
+  setShareBusy(true);
+  try {
+    await navigator.share(payload);
+    document.querySelector('#share-feedback').textContent='공유 메뉴로 내용을 전달했어요.';
+  } catch(error) {
+    document.querySelector('#share-feedback').textContent=error.name==='AbortError'?'공유를 취소했어요.':'공유 메뉴를 열 수 없어요. 내용을 복사해 공유해 주세요.';
+  } finally {setShareBusy(false);}
+}
+document.querySelector('#share-application').addEventListener('change',updateSharePreview);
+function clearShare() {
+  shareSnapshot=null;document.querySelector('#share-preview').value='';document.querySelector('#share-application').checked=false;document.body.classList.remove('sharing-open');
+}
+function closeShare() {document.querySelector('#share-dialog').close();clearShare();}
+document.querySelector('#share-dialog').addEventListener('cancel',clearShare);
+document.querySelector('#share-dialog').addEventListener('close',()=>{if(!document.querySelector('#share-dialog').open)clearShare();});
 function account() {
   const avatar=AVATARS[profile.avatar];
   const completedDates=[...new Set([...Object.keys(data),...Object.keys(legacy),...Object.keys(readingData)])].filter(date=>validDay(date)&&date<=today&&completedDay(date));
@@ -302,6 +359,11 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b||b.disabled)return;
  if(b.dataset.page){render(b.dataset.page);window.scrollTo({top:0,behavior:'instant'});}
  if(b.dataset.chapter)openChapter(b.dataset.chapter,Number(b.dataset.start),Number(b.dataset.end),b.dataset.date||today);
+ if(b.dataset.action==='open-share')openShare();
+ if(b.dataset.action==='share-entry')openShare({id:b.dataset.shareChapter,date:b.dataset.date,start:Number(b.dataset.start),end:Number(b.dataset.end)});
+ if(b.dataset.action==='close-share')closeShare();
+ if(b.dataset.action==='send-share')void sendShare();
+ if(b.dataset.action==='copy-share')void copyShareText();
  if(b.dataset.action==='mode'){mode=b.dataset.mode==='reading'?'reading':'qt';render('home');}
  if(b.dataset.action==='word-reselect')render('wordSelection');
  if(b.dataset.action==='read-chapter')markChapterRead();

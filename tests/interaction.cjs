@@ -43,7 +43,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
      assert.ok(Math.abs(week.anchor-Math.floor((week.days-1)/2))<=1);assert.equal(week.count,i%3===1?2:1);assert.equal(week.character,['ko','muni','tas'][i%3]);
      const left=week.button.left-week.path.left,right=week.path.right-week.button.right;
      if(Math.abs(left-right)>1)assert.equal(week.side,left>right?'left':'right');
-     assert.ok(week.side==='right'?week.friend.left>week.button.right:week.friend.right<week.button.left);
+     assert.ok((week.side==='right'?week.friend.left-week.button.right:week.button.left-week.friend.right)>=27,'companions have a generous gap from the button');
      assert.ok(week.friend.left>=week.path.left&&week.friend.right<=week.path.right,'companion remains in the open space beside the path');
      for(const button of week.others)assert.ok(!(week.friend.left<button.right&&week.friend.right>button.left&&week.friend.top<button.bottom&&week.friend.bottom>button.top),'companion does not overlap a date button');
     }

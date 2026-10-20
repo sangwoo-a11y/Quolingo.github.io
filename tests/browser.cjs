@@ -64,22 +64,30 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   const reflection=['관찰 기록','해석 기록','적용 기록'];
   for(let i=0;i<3;i++){
    if(i>0){assert.equal(await p.locator('.reading-excerpt[open]').count(),1);assert.match(await p.locator('.reflection-context').textContent(),new RegExp(reflection[i-1]));}
-   await p.locator('textarea').fill(reflection[i]);await p.locator('#next').click();
+   await p.locator('#reflection').fill(reflection[i]);await p.locator('#next').click();
   }
-  assert.equal(await week('2026-10-20').textContent(),'✓');
+  assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
+  await p.locator('.success [data-action="open-share"]').click();
+  assert.equal(await p.locator('#share-dialog').isVisible(),true);
+  assert.equal(await p.locator('#share-application').isChecked(),false);
+  assert.match(await p.locator('#share-preview').inputValue(),/관찰 기록/);
+  assert.doesNotMatch(await p.locator('#share-preview').inputValue(),/적용 기록/);
+  await p.locator('[data-action="close-share"]').click();
   assert.equal(await p.locator('#streak').textContent(),'2'); // Legacy day stays complete under its previous rule.
   assert.equal(await p.locator('#total').textContent(),'2');
   assert.equal(await p.locator('#reading-goal .goal-count').textContent(),'2 / 2장');
   await nav('home');assert.equal(await day('2026-10-20').locator('.completion-check path').getAttribute('stroke-width'),'6');
+  assert.equal(await week('2026-10-20').locator('.completion-check path').getAttribute('stroke-width'),'6');
+  assert.equal(await week('2026-10-20').locator('path').getAttribute('d'),await day('2026-10-20').locator('.completion-check path').getAttribute('d'));
   await nav('account');
   assert.equal(await p.locator('label[for=qt-book]').textContent(),'큐티말씀');
   assert.deepEqual(await p.locator('#completion-rule option').evaluateAll(options=>options.map(o=>o.value)),['both','qt','reading']);
   await p.locator('#daily-goal').fill('3');await p.locator('#daily-goal').dispatchEvent('change');
   assert.equal(await week('2026-10-20').textContent(),'·'); // Both still requires the increased reading goal.
   await p.locator('#completion-rule').selectOption('reading');assert.equal(await week('2026-10-20').textContent(),'·');
-  await p.locator('#completion-rule').selectOption('qt');assert.equal(await week('2026-10-20').textContent(),'✓');
+  await p.locator('#completion-rule').selectOption('qt');assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
   await p.locator('#completion-rule').selectOption('both');assert.equal(await week('2026-10-20').textContent(),'·');
-  await readDate('2026-10-20','genesis-3');assert.equal(await week('2026-10-20').textContent(),'✓');
+  await readDate('2026-10-20','genesis-3');assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
   // Completed records can come from different books; switching books doesn't reset totals.
   await nav('account');await p.locator('#reading-book').selectOption('revelation');
   await readDate('2026-10-20','revelation-22');
@@ -139,7 +147,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await readDate('2026-10-25','revelation-1');assert.equal(await p.locator('#reading-goal .goal-count').textContent(),'1 / 3장');
   await nav('account');await p.locator('#completion-rule').selectOption('both');
   await p.locator('#daily-goal').fill('1');await p.locator('#daily-goal').dispatchEvent('change');
-  assert.equal(await week('2026-10-25').textContent(),'✓');
+  assert.equal(await week('2026-10-25').locator('.completion-check').count(),1);
   await p.locator('#skip-sunday-qt').uncheck();assert.equal(await week('2026-10-25').textContent(),'·');
   await p.locator('#skip-sunday-qt').check();
   // Goal changes from Monday onward preserve Sunday's goal and completion.
