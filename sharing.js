@@ -1,4 +1,4 @@
-// Build a text-only snapshot. Application is excluded unless explicitly selected.
+// Build a text-only snapshot using the share dialog's application checkbox state.
 const QTShare = {
   text(entry, includeApplication = false) {
     const sections = [

@@ -45,6 +45,22 @@ test('three-way merge preserves unrelated notes and combines chapter additions/c
  assert.equal(conflict.conflicts.length,1);assert.equal(conflict.value.chapters.d.c.observation,'local');
  assert.equal(Q.merge(base,local,remote,'remote').value.chapters.d.c.observation,'other');
 });
+test('deleted QT ranges sync without restoring them or removing other records',async()=>{
+ const store=new Q.Store(new Memory()),client=remoteClient(),a=account(client,store);
+ const base=Q.empty();
+ base.chapters.d={c:{sessions:{'1-2':{completed:true},'3-4':{completed:true}}}};
+ base.reading.d={chapters:['one']};client.set(base);await a.init();
+ const local=structuredClone(base.chapters);delete local.d.c.sessions['1-2'];
+ store.setItem(Q.FIELDS.chapters,JSON.stringify(local));clearTimeout(a.timer);
+ const remote=structuredClone(base);remote.chapters.other={note:'second device'};client.set(remote);
+ await a.sync();
+ assert.equal(a.status,'synced');
+ assert.deepEqual(Object.keys(client.row.chapters.d.c.sessions),['3-4']);
+ assert.equal(client.row.chapters.other.note,'second device');
+ assert.deepEqual(client.row.reading,base.reading);
+ const second=new Q.Store(new Memory());await account(client,second).init();
+ assert.equal(second.read().chapters.d.c.sessions['1-2'],undefined);
+});
 test('a new device downloads cloud records without importing guest records',async()=>{
  const memory=new Memory(),store=new Q.Store(memory),client=remoteClient();
  store.setItem(Q.FIELDS.chapters,JSON.stringify({guest:{note:'guest'}}));

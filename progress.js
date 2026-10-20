@@ -24,8 +24,9 @@ const DailyProgress = (() => {
     return { complete: Boolean(complete), rest, qtOff, readingDone };
   }
   function streak(today, status, shiftDay) {
-    let date = status(today).complete || status(today).rest ? today : shiftDay(today, -1);
-    let count = 0;
+    // Count today's completion immediately, including the first-ever completed day.
+    let count = status(today).complete ? 1 : 0;
+    let date = shiftDay(today, -1);
     for (let i = 0; i < 40000; i++) {
       const day = status(date);
       if (!day.complete && !day.rest) break;

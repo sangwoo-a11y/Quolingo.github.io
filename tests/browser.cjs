@@ -70,9 +70,9 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('.success [data-page=home]').textContent(),'홈 화면으로 돌아가기');
   await p.locator('.success [data-action="open-share"]').click();
   assert.equal(await p.locator('#share-dialog').isVisible(),true);
-  assert.equal(await p.locator('#share-application').isChecked(),false);
+  assert.equal(await p.locator('#share-application').isChecked(),true);
   assert.match(await p.locator('#share-preview').inputValue(),/관찰 기록/);
-  assert.doesNotMatch(await p.locator('#share-preview').inputValue(),/적용 기록/);
+  assert.match(await p.locator('#share-preview').inputValue(),/적용 기록/);
   await p.locator('[data-action="close-share"]').click();
   assert.equal(await p.locator('#streak').textContent(),'2'); // Legacy day stays complete under its previous rule.
   assert.equal(await p.locator('#total').textContent(),'59');

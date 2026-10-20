@@ -116,7 +116,14 @@ function setChapterRead(id=selected,date=selectedDate,read=true) {
   if(page==='reader')document.querySelector('[data-action="read-chapter"]').focus({preventScroll:true});
   if(!read)toast('읽기 완료를 취소했어요.');
 }
-function qtVerseCount(date) { return ALL_CHAPTERS.reduce((sum,c)=>sum+readVerses(c.id,date).length,0); }
+function completedQTVerses(id, date) {
+  const c=CHAPTER_BY_ID.get(id);
+  if(!c)return [];
+  const sessions=Object.values(record(id,date).sessions||{}).filter(r=>r?.completed&&validRange(c,r.start,r.end));
+  return [...new Set(sessions.flatMap(r=>(Array.isArray(r.read)?r.read:Array.from({length:r.end-r.start+1},(_,i)=>r.start+i))
+    .filter(n=>Number.isInteger(n)&&n>=r.start&&n<=r.end)))];
+}
+function qtVerseCount(date) { return ALL_CHAPTERS.reduce((sum,c)=>sum+completedQTVerses(c.id,date).length,0); }
 function dateReadCount(date) {
   return qtVerseCount(date)+readChapters(date).reduce((sum,id)=>sum+CHAPTER_BY_ID.get(id).verses.length,0);
 }
@@ -293,7 +300,33 @@ function editor() {
 }
 function journalCard(date,c,r,old=false) {
   const title=old?'이전 말씀 묵상':reference(c,r.start,r.end);
-  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료 ✓':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date<=today&&CHAPTERS.some(item=>item.id===c.id)?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">기록 이어 쓰기</button>`:''}${!old&&r.completed?`<button class="text-button entry-share" data-action="share-entry" data-share-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">묵상 공유하기</button>`:''}</article>`;
+  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date<=today&&CHAPTERS.some(item=>item.id===c.id)?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">기록 이어 쓰기</button>`:''}<button class="text-button entry-delete" data-action="delete-entry" data-delete-chapter="${old?'':c.id}" data-start="${old?'':r.start}" data-end="${old?'':r.end}" data-date="${date}" data-legacy="${old}">묵종 삭제</button></article>`;
+}
+function deleteJournalEntry({id,date,start,end,old=false}) {
+  if(!validDay(date))return;
+  const c=CHAPTER_BY_ID.get(id),key=`${start}-${end}`;
+  if(old?!legacy[date]:!c||!validRange(c,start,end)||!record(id,date).sessions?.[key])return;
+  if(!window.confirm('이 묵종을 삭제할까요? 삭제한 내용은 되돌릴 수 없어요.'))return;
+  if(old) {
+    const next={...legacy};delete next[date];
+    try {accountStore.setItem(LEGACY_KEY,JSON.stringify(next));}
+    catch {toast('묵종을 삭제하지 못했어요. 다시 시도해 주세요.');return;}
+    legacy=next;
+  } else {
+    const next={...data,[date]:{...data[date]}},sessions={...record(id,date).sessions};
+    delete sessions[key];
+    if(Object.keys(sessions).length) {
+      // Drop migrated chapter-wide completion flags and rebuild from the remaining ranges.
+      const last=Object.values(sessions).find(r=>validRange(c,r.start,r.end));
+      next[date][id]={sessions,read:[...new Set(Object.values(sessions).flatMap(r=>Array.isArray(r.read)?r.read:[]))].sort((a,b)=>a-b),
+        ...(last?{lastRange:{start:last.start,end:last.end}}:{})};
+    } else delete next[date][id];
+    if(!Object.keys(next[date]).length)delete next[date];
+    try {accountStore.setItem(KEY,JSON.stringify(next));}
+    catch {toast('묵종을 삭제하지 못했어요. 다시 시도해 주세요.');return;}
+    data=next;
+  }
+  render('journal','replace');toast('묵종을 삭제했어요.');
 }
 function journal() {
  const dates=[...new Set([...Object.keys(data),...Object.keys(legacy),...Object.keys(readingData)])].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse();
@@ -336,7 +369,7 @@ function openShare({id=selected,date=selectedDate,start=rangeStart,end=rangeEnd}
   if(!c||!validDay(date)||!validRange(c,start,end)||!r?.completed){toast('완료한 묵상만 공유할 수 있어요.');return;}
   shareSnapshot={date,reference:reference(c,start,end),...Object.fromEntries(fields.map(field=>[field,String(r[field]||'')]))};
   const nativeShare=typeof navigator.share==='function';
-  document.querySelector('#share-application').checked=false;
+  document.querySelector('#share-application').checked=true;
   document.querySelector('[data-action="send-share"]').textContent=nativeShare?'공유하기':'내용 복사하기';
   document.querySelector('[data-action="copy-share"]').hidden=!nativeShare;
   document.querySelector('#share-note').textContent=nativeShare?'공유 메뉴에서 카카오톡 등 보낼 앱을 선택하세요.':'내용을 복사해 카카오톡 등에 붙여넣어 공유할 수 있어요.';
@@ -497,7 +530,7 @@ document.addEventListener('click',e=>{
  if(b.dataset.page){render(b.dataset.page);window.scrollTo({top:0,behavior:'instant'});}
  if(b.dataset.chapter)openChapter(b.dataset.chapter,Number(b.dataset.start),Number(b.dataset.end),b.dataset.date||today);
  if(b.dataset.action==='open-share')openShare();
- if(b.dataset.action==='share-entry')openShare({id:b.dataset.shareChapter,date:b.dataset.date,start:Number(b.dataset.start),end:Number(b.dataset.end)});
+ if(b.dataset.action==='delete-entry')deleteJournalEntry({id:b.dataset.deleteChapter,date:b.dataset.date,start:Number(b.dataset.start),end:Number(b.dataset.end),old:b.dataset.legacy==='true'});
  if(b.dataset.action==='close-share')closeShare();
  if(b.dataset.action==='send-share')void sendShare();
  if(b.dataset.action==='copy-share')void copyShareText();

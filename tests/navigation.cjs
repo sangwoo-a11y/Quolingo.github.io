@@ -57,7 +57,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('.back').count(),0);
   assert.equal(await p.locator('[data-action=previous]').isVisible(),true);
   await p.locator('[data-action=previous]').tap();assert.equal((await state()).page,'selection');
-  await p.locator('#passage-selection [type=submit]').tap();await next();await total(29);
+  await p.locator('#passage-selection [type=submit]').tap();await next();await total(27);
   assert.equal(await p.evaluate(()=>dayQTPercent(today)),25);
   await nav('home');assert.equal(await p.locator('.day-node[data-date="2026-10-20"]').evaluate(e=>e.style.getPropertyValue('--fill')),'25%');
   await openDay();await p.locator('#passage-selection [type=submit]').tap();await next();

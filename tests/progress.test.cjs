@@ -36,6 +36,18 @@ test('streak bridges a Sunday rest without adding it and still breaks on a misse
   completed.delete('2026-10-17');
   assert.equal(streak('2026-10-20',status,shift),1);
 });
+test('the first completion counts as day one immediately and repeats do not add a day',()=>{
+  const completed=new Set();
+  const status=date=>state(date,completed.has(date),0,config('qt'));
+  assert.equal(streak(tue,status,shift),0);
+  completed.add(tue);
+  assert.equal(streak(tue,status,shift),1);
+  assert.equal(streak(tue,status,shift),1);
+  completed.add(shift(tue,-1));
+  assert.equal(streak(tue,status,shift),2);
+  completed.delete(tue);
+  assert.equal(streak(tue,status,shift),1);
+});
 test('QT progress follows confirmed steps and preserves earlier records',()=>{
   assert.equal(qtSteps({}),0);
   assert.equal(qtSteps({read:[1]}),1);
