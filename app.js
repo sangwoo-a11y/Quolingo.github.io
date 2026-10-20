@@ -9,7 +9,7 @@ const PROFILE_KEY = 'quolingo-profile-v1';
 const READING_KEY = 'quolingo-reading-v1';
 const CHAPTER_BY_ID = new Map(ALL_CHAPTERS.map(c=>[c.id,c]));
 const ACTIVE_CHAPTER_IDS = new Set(CHAPTERS.map(c=>c.id));
-const AVATARS = {muni:{emoji:'🦊',name:'뮤니'},ko:{emoji:'🐥',name:'코'},tas:{emoji:'🐻',name:'타스'}};
+const AVATARS = {muni:{name:'뮤니',face:'430 0 345 260'},ko:{name:'코',face:'474 397 242 201'},tas:{name:'타스',face:'472 683 244 174'}};
 const fields = ['observation', 'interpretation', 'application'];
 const parts = ['관찰', '해석', '적용'];
 const content = document.querySelector('#content');
@@ -152,7 +152,7 @@ function updateStats() {
   const count=allTimeCount(), days=streak();
   document.querySelectorAll('[data-stat="streak"]').forEach(el=>el.textContent=days);
   document.querySelectorAll('[data-stat="total"]').forEach(el=>{el.textContent=count;el.closest('.diamond-stat')?.setAttribute('aria-label',`누적 읽은 말씀 ${count}절`);});
-  document.querySelectorAll('[data-profile-avatar]').forEach(el=>el.textContent=profile.name?AVATARS[profile.avatar].emoji:'👤');
+  document.querySelectorAll('[data-profile-avatar]').forEach(el=>el.innerHTML=avatarFace(profile.avatar));
   const weekday=new Date(today+'T12:00:00+09:00').getUTCDay();const monday=shiftDay(today,-((weekday+6)%7));
   document.querySelector('#week').innerHTML=['월','화','수','목','금','토','일'].map((label,i)=>{
     const date=shiftDay(monday,i),state=dailyState(date),done=state.complete;
@@ -202,6 +202,11 @@ window.addEventListener('popstate',event=>{
 });
 function star() { return '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2 4.3 8.7 9.6 1.4-6.9 6.7 1.6 9.5L16 23.8l-8.6 4.5L9 18.8l-6.9-6.7 9.6-1.4Z" fill="currentColor"/></svg>'; }
 function checkMark() { return '<svg class="completion-check" viewBox="0 0 40 40" aria-hidden="true"><path d="m8 20 8 8 16-17" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+function avatarFace(id) {
+  const avatar=AVATARS[id]||AVATARS.ko;
+  const [,,width,height]=avatar.face.split(' ');
+  return `<svg class="avatar-face" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false"><svg width="${width}" height="${height}" viewBox="${avatar.face}" overflow="hidden"><image href="assets/character-parts.png" width="1536" height="1024"/></svg></svg>`;
+}
 // Body and waving arm are separate sprite regions, joined at each shoulder.
 function friendsArt(label, characterId) {
   const members=characterId?(Array.isArray(characterId)?characterId:[characterId]):null;
@@ -424,8 +429,7 @@ async function startCloudAccount() {
   }
 }
 function account() {
-  const avatar=AVATARS[profile.avatar];
-  content.innerHTML=`<h1>계정</h1><section id="cloud-account" class="card cloud-account" aria-label="로그인과 동기화">${cloudAccountHTML()}</section><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatar.emoji}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>${cloudAccount?.user?'계정에 저장되는 프로필':'이 브라우저에 저장되는 프로필'}</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">QT</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><p class="settings-note">말씀 목표는 QT와 별도로 집계합니다. 일요일 QT를 끄면 ‘QT만’에서는 쉬는 날로 처리하며, 나머지 조건에서는 말씀 목표를 채워야 합니다. 변경한 목표와 완료 조건은 오늘부터 적용됩니다.</p><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span><i aria-hidden="true">${value.emoji}</i>${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
+  content.innerHTML=`<h1>계정</h1><section id="cloud-account" class="card cloud-account" aria-label="로그인과 동기화">${cloudAccountHTML()}</section><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatarFace(profile.avatar)}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>${cloudAccount?.user?'계정에 저장되는 프로필':'이 브라우저에 저장되는 프로필'}</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">QT</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span>${avatarFace(key)}${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
 }
 document.addEventListener('change',e=>{
   const id=e.target.id;
