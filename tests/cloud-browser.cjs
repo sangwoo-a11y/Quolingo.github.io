@@ -29,19 +29,21 @@ const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbb
   await nav('account');await p.locator('[data-action=cloud-login]').click();
   assert.equal(await p.evaluate(()=>window.oauthOptions.provider),'google');
   assert.equal(await p.evaluate(()=>window.oauthOptions.options.redirectTo),url+'/');
-  await signed(A);await nav('journal');assert.doesNotMatch(await p.locator('#content').textContent(),/GUEST_NOTE/);
-  await nav('account');assert.equal(await p.locator('#profile-name').inputValue(),'');
-  await p.locator('[data-action=cloud-import]').click();await p.waitForFunction(()=>cloudAccount.status==='synced');
-  assert.equal(await p.locator('#profile-name').inputValue(),'기기 프로필');
-  await nav('journal');assert.match(await p.locator('#content').textContent(),/GUEST_NOTE/);
+  await p.evaluate(id=>{const rows=JSON.parse(localStorage.getItem('mock-database')||'{}');rows[id]={revision:1,payload:{profile:{name:'계정 프로필'},chapters:{'2026-10-20':{'joshua-1':{read:[1],sessions:{'1-1':{start:1,end:1,read:[1],observation:'ACCOUNT_NOTE',interpretation:'account meaning',application:'account action',completed:true}}}}}}};localStorage.setItem('mock-database',JSON.stringify(rows));},A);
+  await signed(A);await nav('journal');assert.doesNotMatch(await p.locator('#content').textContent(),/GUEST_NOTE/);assert.match(await p.locator('#content').textContent(),/ACCOUNT_NOTE/);
+  assert.equal(await p.locator('h1').textContent(),'나의 묵종');assert.equal(await p.locator('[data-action=export]').count(),0);
+  await nav('account');assert.equal(await p.locator('#profile-name').inputValue(),'계정 프로필');
+  assert.equal(await p.locator('[data-action=cloud-import],[data-action=cloud-sync],[data-action=export]').count(),0);
+  assert.equal(await p.locator('label[for=qt-book]').textContent(),'QT');
+  await nav('journal');
   // An account edit is saved in its own cache and uploaded automatically.
   await p.locator('[data-chapter="joshua-1"]').click();await p.locator('#next').click();
-  await p.locator('#reflection').fill('ACCOUNT_A_NOTE');await p.evaluate(()=>cloudAccount.sync());
+  await p.locator('#reflection').fill('ACCOUNT_A_NOTE');await p.clock.runFor(1000);await p.waitForFunction(()=>cloudAccount.status==='synced');
   assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.chapters['2026-10-20']['joshua-1'].sessions['1-1'].observation,A),'ACCOUNT_A_NOTE');
   assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('quolingo-chapters-v2'))['2026-10-20']['joshua-1'].sessions['1-1'].observation),'GUEST_NOTE');
   // The same note edited elsewhere is compared, never silently overwritten.
   await p.evaluate(id=>{window.mockOffline=true;const rows=JSON.parse(localStorage.getItem('mock-database'));rows[id].revision++;rows[id].payload.chapters['2026-10-20']['joshua-1'].sessions['1-1'].observation='REMOTE_NOTE';localStorage.setItem('mock-database',JSON.stringify(rows));},A);
-  await p.locator('#reflection').fill('LOCAL_NOTE');await p.evaluate(()=>{window.mockOffline=false;return cloudAccount.sync();});await nav('account');
+  await p.locator('#reflection').fill('LOCAL_NOTE');await p.evaluate(()=>{window.mockOffline=false;window.dispatchEvent(new Event('online'));});await p.waitForFunction(()=>cloudAccount.status==='conflict');await nav('account');
   assert.equal(await p.locator('.sync-conflicts').isVisible(),true);assert.match(await p.locator('.sync-conflicts textarea').first().inputValue(),/LOCAL_NOTE/);
   await p.locator('[data-action=cloud-local]').click();await p.waitForFunction(()=>cloudAccount.status==='synced');
   assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.chapters['2026-10-20']['joshua-1'].sessions['1-1'].observation,A),'LOCAL_NOTE');
@@ -54,6 +56,6 @@ const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbb
   await signed(A);await nav('journal');assert.match(await p.locator('#content').textContent(),/LOCAL_NOTE/);
   await p.reload();await nav('journal');assert.match(await p.locator('#content').textContent(),/LOCAL_NOTE/);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
-  console.log('PASS: Google OAuth options, explicit guest import, per-account records and profile, automatic upload, conflict comparison/resolution, logout isolation, second account, reload and mobile UI without external auth requests.');
+  console.log('PASS: Google OAuth options, hidden manual controls and automatic sync, per-account records and profile, automatic upload, conflict comparison/resolution, logout isolation, second account, reload and mobile UI without external auth requests.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

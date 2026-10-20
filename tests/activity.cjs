@@ -32,9 +32,10 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
    await nav('activity');
   };
   assert.equal((await p.locator('.nav[data-page=home]').textContent()).trim(),'🏡홈');
-  assert.equal((await p.locator('.nav[data-page=activity]').textContent()).trim(),'🏅현황');
+  assert.equal((await p.locator('.nav[data-page=activity]').textContent()).trim(),'🏅기록');
   assert.doesNotMatch(await p.locator('#content').textContent(),/말씀 여행/);
   await nav('activity');
+  assert.equal(await p.locator('.activity-stats .card').nth(1).locator('h2').textContent(),(await p.locator('#total').textContent())+'절');
   assert.equal(await day('2026-10-20').getAttribute('aria-pressed'),'true');
   assert.equal(await p.locator('.calendar-day').count(),31);
   assert.equal(await p.locator('.calendar-blank').count(),3); // Thursday, Monday-first grid.
@@ -106,6 +107,9 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
    await p.setViewportSize({width,height:900});
    assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`no overflow at ${width}`);
    if(width<=580){
+    const cell=await day('2026-10-19').boundingBox();assert.ok(cell.height<=cell.width*1.6,'mobile date cells stay compact');
+    const cells=await p.locator('.calendar-day').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top};}));
+    for(let i=1;i<cells.length;i++)if(Math.abs(cells[i].top-cells[i-1].top)<1)assert.ok(cells[i-1].right+2<=cells[i].left,'calendar cells keep their horizontal gap');
     const logo=await p.locator('.mobile-logo').boundingBox();assert.ok(logo&&logo.x<30&&logo.y<30);
     await select('2026-10-19');assert.match(await p.locator('.calendar-detail').textContent(),/창세기/);
     await genesis.locator('summary').click();assert.equal(await genesis.locator('.read-chapter-list').isVisible(),true);

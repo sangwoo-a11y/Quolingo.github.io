@@ -37,7 +37,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await toggle.tap();assert.equal(await toggle.getAttribute('aria-pressed'),'false');await total(0);
   await toggle.tap();await total(27);assert.equal(await p.evaluate(()=>history.length),historyLength);
   await p.reload();assert.equal((await state()).page,'reader');assert.equal((await state()).selected,'joshua-6');await total(27);
-  await p.locator('.mobile-stats .stat-button').tap();assert.equal((await state()).page,'activity');
+  await p.locator('.mobile-stats .diamond-stat').tap();assert.equal((await state()).page,'reader');await nav('activity');
   assert.equal(await p.locator('.calendar-detail [data-action=unread-chapter]').count(),0);
   assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/27절/);
   assert.doesNotMatch(await p.locator('#content').textContent(),/하루 완료/);
@@ -70,16 +70,16 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await p.locator('#reflection').fill('모바일 해석');await next();assert.equal(await p.evaluate(()=>dayQTPercent(today)),75);
   assert.equal(await p.locator('.reading-excerpt[open]').count(),0);
   await p.locator('#reflection').fill('모바일 적용');assert.equal(await p.evaluate(()=>dayQTPercent(today)),75);
-  await next();assert.equal((await state()).page,'success');assert.equal(await p.evaluate(()=>dayQTPercent(today)),100);
+  assert.doesNotMatch(await p.locator('#next').textContent(),/✓/);await next();assert.equal((await state()).page,'success');assert.equal(await p.evaluate(()=>dayQTPercent(today)),100);
   await total(29);await p.locator('.success [data-page=home]').tap();
   assert.equal(await p.locator('.day-node[data-date="2026-10-20"]').evaluate(e=>e.style.getPropertyValue('--fill')),'100%');
   await mode('reading');await openDay();await p.locator('#word-chapter').selectOption('joshua-6');await p.locator('#word-selection [type=submit]').tap();
   await toggle.tap();await total(2); // Cancelling chapter reading retains the two QT verses.
-  await p.locator('.mobile-stats .stat-button').tap();
+  await nav('activity');
   assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/2절/);
   await nav('home');await p.locator('.mobile-logo').tap();assert.equal((await state()).page,'home');
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.deepEqual(errors,[]);
-  console.log('PASS: touch chapter title/reselection, free previous/next boundaries, completion toggle and persistence, mobile diamond totals/link, browser back/forward and draft restoration, confirmed QT quarter progress, additive QT/reading verses and independent cancellation.');
+  console.log('PASS: touch chapter title/reselection, free previous/next boundaries, completion toggle and persistence, non-navigating mobile diamond totals, browser back/forward and draft restoration, confirmed QT quarter progress, additive QT/reading verses and independent cancellation.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

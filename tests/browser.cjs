@@ -1,7 +1,6 @@
 // Run against `python3 -m http.server 8080` with Playwright + Chromium installed.
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
-const fs=require('node:fs');
 const url=process.env.TEST_URL||'http://127.0.0.1:8080';
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
@@ -46,7 +45,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('.verse-row').count(),31);
   assert.match(await p.locator('.verse-row').first().textContent(),/태초에 하나님이 천지를/);
   assert.equal(await p.locator('#reading-goal .goal-count').textContent(),'1 / 2장');
-  assert.equal(await p.locator('#total').textContent(),'31');
+  assert.equal(await p.locator('#total').textContent(),'32');
   assert.equal(await week('2026-10-20').textContent(),'·');
   assert.equal(await p.locator('[data-action="read-chapter"]').getAttribute('aria-pressed'),'true');
   await nav('home');await mode('reading');await day('2026-10-20').click();
@@ -76,13 +75,13 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.doesNotMatch(await p.locator('#share-preview').inputValue(),/적용 기록/);
   await p.locator('[data-action="close-share"]').click();
   assert.equal(await p.locator('#streak').textContent(),'2'); // Legacy day stays complete under its previous rule.
-  assert.equal(await p.locator('#total').textContent(),'58');
+  assert.equal(await p.locator('#total').textContent(),'59');
   assert.equal(await p.locator('#reading-goal .goal-count').textContent(),'2 / 2장');
   await nav('home');assert.equal(await day('2026-10-20').locator('.completion-check path').getAttribute('stroke-width'),'6');
   assert.equal(await week('2026-10-20').locator('.completion-check path').getAttribute('stroke-width'),'6');
   assert.equal(await week('2026-10-20').locator('path').getAttribute('d'),await day('2026-10-20').locator('.completion-check path').getAttribute('d'));
   await nav('account');
-  assert.equal(await p.locator('label[for=qt-book]').textContent(),'큐티말씀');
+  assert.equal(await p.locator('label[for=qt-book]').textContent(),'QT');
   assert.deepEqual(await p.locator('#completion-rule option').evaluateAll(options=>options.map(o=>o.value)),['both','qt','reading']);
   await p.locator('#daily-goal').fill('3');await p.locator('#daily-goal').dispatchEvent('change');
   assert.equal(await week('2026-10-20').textContent(),'·'); // Both still requires the increased reading goal.
@@ -133,12 +132,11 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await p.locator('#profile-name').fill('상우');await p.locator('[type="submit"]').click();
   await p.reload();await nav('account');assert.equal(await p.locator('#profile-name').inputValue(),'상우');
   assert.equal(await p.locator('#daily-goal').inputValue(),'3');
-  const download=p.waitForEvent('download');await p.locator('[data-action="export"]').click();
-  const file=await download;await file.saveAs('/tmp/quolingo-final-backup.json');
-  const backup=JSON.parse(fs.readFileSync('/tmp/quolingo-final-backup.json','utf8'));
-  assert.equal(backup.version,4);assert.equal(backup.profile.qtBookId,'matthew');assert.equal(backup.profile.readingBookId,'revelation');assert.equal(backup.reading['2026-10-20'].chapters.length,4);
-  assert.equal(backup.chapters['2026-10-20']['matthew-1'].sessions['1-2'].application,'적용 기록');
-  assert.equal(backup.chapters['2026-10-19']['joshua-1'].observation,'기존 관찰');
+  assert.equal(await p.locator('[data-action="export"]').count(),0);
+  const saved=await p.evaluate(()=>({profile:JSON.parse(localStorage.getItem('quolingo-profile-v1')),reading:JSON.parse(localStorage.getItem('quolingo-reading-v1')),chapters:JSON.parse(localStorage.getItem('quolingo-chapters-v2'))}));
+  assert.equal(saved.profile.qtBookId,'matthew');assert.equal(saved.profile.readingBookId,'revelation');assert.equal(saved.reading['2026-10-20'].chapters.length,4);
+  assert.equal(saved.chapters['2026-10-20']['matthew-1'].sessions['1-2'].application,'적용 기록');
+  assert.equal(saved.chapters['2026-10-19']['joshua-1'].observation,'기존 관찰');
   await nav('home');await p.screenshot({path:'/tmp/quolingo-final-desktop.png'});
   // Sunday: QT-only is a rest, reading stays enabled, no artificial completion check.
   await p.clock.setSystemTime(new Date('2026-10-25T03:00:00Z'));await p.reload();await nav('account');
@@ -171,6 +169,6 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await old.evaluate(()=>JSON.parse(localStorage.getItem('quolingo-reading-v1'))['2026-10-19'].rules.completionRule),'either');
   await oldContext.close();
   assert.deepEqual(errors,[]);
-  console.log('PASS: 66 books, mode routing, independent/deduplicated chapter records, QT context and legacy migration, three current completion choices and retired-choice migration, daily goal persistence/history, Sunday exemption, backup, independently animated waving arms and bodies, mobile layout and bottom spacing.');
+  console.log('PASS: 66 books, mode routing, independent/deduplicated chapter records, QT context and legacy migration, three current completion choices and retired-choice migration, daily goal persistence/history, Sunday exemption, stored records, independently animated waving arms and bodies, mobile layout and bottom spacing.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

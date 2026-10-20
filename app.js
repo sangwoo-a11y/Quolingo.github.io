@@ -80,7 +80,7 @@ function updateRecord(changes) {
   data[selectedDate] = {...data[selectedDate], [selected]: {...entry, read, lastRange:{start:rangeStart,end:rangeEnd},
     sessions:{...entry.sessions, [rangeKey()]:session}}};
   try { accountStore.setItem(KEY, JSON.stringify(data)); return true; }
-  catch { toast('브라우저 저장 실패 · 나의 묵상에서 파일로 백업해 주세요.'); return false; }
+  catch { toast('기기에 기록을 저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); return false; }
 }
 function escapeHTML(value) { return String(value ?? '').replace(/[&<>"']/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x])); }
 function qtCompletedDay(date) { return Boolean(legacy[date]?.completed || Object.values(data[date]||{}).some(entry => entry?.completed || Object.values(entry?.sessions || {}).some(r=>r?.completed))); }
@@ -96,7 +96,7 @@ function completedDay(date) { return dailyState(date).complete; }
 function streak() { return DailyProgress.streak(today,dailyState,shiftDay); }
 function persistReading() {
   try { accountStore.setItem(READING_KEY,JSON.stringify(readingData)); return true; }
-  catch { toast('말씀 읽기 기록을 저장할 수 없어요. 전체 기록을 파일로 백업해 주세요.'); return false; }
+  catch { toast('말씀 읽기 기록을 저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); return false; }
 }
 function rememberDailyRules(date) {
   if(!readingData[date]?.rules) { readingData[date]={...readingData[date],rules:daySettings(date)};persistReading(); }
@@ -149,9 +149,9 @@ function dayQTPercent(date) {
 }
 function toast(message) { const el=document.querySelector('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3500); }
 function updateStats() {
-  const count=todayCount(), days=streak();
+  const count=allTimeCount(), days=streak();
   document.querySelectorAll('[data-stat="streak"]').forEach(el=>el.textContent=days);
-  document.querySelectorAll('[data-stat="total"]').forEach(el=>{el.textContent=count;el.closest('button')?.setAttribute('aria-label',`오늘 읽은 말씀 ${count}절 · 읽기 현황 열기`);});
+  document.querySelectorAll('[data-stat="total"]').forEach(el=>{el.textContent=count;el.closest('.diamond-stat')?.setAttribute('aria-label',`누적 읽은 말씀 ${count}절`);});
   document.querySelectorAll('[data-profile-avatar]').forEach(el=>el.textContent=profile.name?AVATARS[profile.avatar].emoji:'👤');
   const weekday=new Date(today+'T12:00:00+09:00').getUTCDay();const monday=shiftDay(today,-((weekday+6)%7));
   document.querySelector('#week').innerHTML=['월','화','수','목','금','토','일'].map((label,i)=>{
@@ -273,7 +273,7 @@ function wordSelection() {
 }
 function reader() {
   const c=chapter(),done=readChapters(selectedDate).includes(selected),chapters=selectionChapters(),index=chapters.findIndex(item=>item.id===selected),previous=chapters[index-1],next=chapters[index+1];
-  content.innerHTML=`<div class="editor-head"><span>${dateLabel(selectedDate)} · 말씀 읽기</span></div><h1><button class="chapter-title" data-action="word-reselect" aria-label="${c.book} ${c.chapter}장 · 읽을 장 선택">${c.book} ${c.chapter}장</button></h1><p class="reader-count">이날 읽은 말씀 ${readChapters(selectedDate).length}장 · 목표 ${daySettings(selectedDate).dailyGoal}장</p><ol class="verses">${c.verses.map((text,i)=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${i+1}</span><span>${escapeHTML(text)}</span></li>`).join('')}</ol><button class="primary wide read-toggle" data-action="read-chapter" aria-pressed="${done}" aria-label="${c.book} ${c.chapter}장 ${done?'읽기 완료 취소':'읽기 완료'}">이 장 읽기 완료${done?' ✓':''}</button><div class="actions chapter-navigation"><button class="outline-button" data-action="previous-chapter" data-next="${previous?.id||''}" ${previous?'':'disabled'}>이전 장</button><button class="outline-button" data-action="next-chapter" data-next="${next?.id||''}" ${next?'':'disabled'}>다음 장</button></div><button class="text-button" data-page="home">홈 화면으로 돌아가기</button>`;
+  content.innerHTML=`<div class="editor-head"><span>${dateLabel(selectedDate)} · 말씀 읽기</span></div><h1><button class="chapter-title" data-action="word-reselect" aria-label="${c.book} ${c.chapter}장 · 읽을 장 선택">${c.book} ${c.chapter}장</button></h1><p class="reader-count">이날 읽은 말씀 ${readChapters(selectedDate).length}장 · 목표 ${daySettings(selectedDate).dailyGoal}장</p><ol class="verses">${c.verses.map((text,i)=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${i+1}</span><span>${escapeHTML(text)}</span></li>`).join('')}</ol><button class="primary wide read-toggle" data-action="read-chapter" aria-pressed="${done}" aria-label="${c.book} ${c.chapter}장 ${done?'읽기 완료 취소':'읽기 완료'}">이 장 읽기 완료</button><div class="actions chapter-navigation"><button class="outline-button" data-action="previous-chapter" data-next="${previous?.id||''}" ${previous?'':'disabled'}>이전 장</button><button class="outline-button" data-action="next-chapter" data-next="${next?.id||''}" ${next?'':'disabled'}>다음 장</button></div><button class="text-button" data-page="home">홈 화면으로 돌아가기</button>`;
 }
 function readingContext(c, r) {
   const previousField = stage === 2 ? 'observation' : stage === 3 ? 'interpretation' : null;
@@ -284,7 +284,7 @@ function readingContext(c, r) {
 }
 function editor() {
   const c=chapter(),r=sessionRecord();
-  content.innerHTML=`<div class="editor-head"><button class="passage-title" data-action="reselect" aria-label="${reference(c)} · 말씀 선택">${dateLabel(selectedDate)} · ${reference(c)}</button><span>${stage+1} / 4</span></div><div class="editor-progress">${[0,1,2,3].map(i=>`<span class="${i<=stage?'filled':''}"></span>`).join('')}</div>${stage===0?`<div class="reading-title"><div><div class="eyebrow">WORD OF THE DAY</div><h1>${reference(c)}</h1><p>${c.title?c.title+' · ':''}개역한글</p></div><span class="reading-count">${selectedVerses().length}절</span></div><ol class="verses">${selectedVerses().map(n=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${n}</span><span>${escapeHTML(c.verses[n-1])}</span></li>`).join('')}</ol><div class="actions"><button class="text-button" data-action="previous">이전</button><button class="primary" id="next" data-action="next">다음</button></div>`:`<div class="eyebrow">QT JOURNAL · ${reference(c)}</div><h1>${parts[stage-1]}하기</h1>${readingContext(c,r)}<label for="reflection" class="sr-only">나의 ${parts[stage-1]}</label><textarea id="reflection">${escapeHTML(r[fields[stage-1]])}</textarea><div class="actions"><button class="text-button" data-action="previous">이전</button><button class="primary" id="next" data-action="next" ${r[fields[stage-1]]?.trim()?'':'disabled'}>${stage===3?'묵상 완료하기 ✓':'다음'}</button></div>`}`;
+  content.innerHTML=`<div class="editor-head"><button class="passage-title" data-action="reselect" aria-label="${reference(c)} · 말씀 선택">${dateLabel(selectedDate)} · ${reference(c)}</button><span>${stage+1} / 4</span></div><div class="editor-progress">${[0,1,2,3].map(i=>`<span class="${i<=stage?'filled':''}"></span>`).join('')}</div>${stage===0?`<div class="reading-title"><div><div class="eyebrow">WORD OF THE DAY</div><h1>${reference(c)}</h1><p>${c.title?c.title+' · ':''}개역한글</p></div><span class="reading-count">${selectedVerses().length}절</span></div><ol class="verses">${selectedVerses().map(n=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${n}</span><span>${escapeHTML(c.verses[n-1])}</span></li>`).join('')}</ol><div class="actions"><button class="text-button" data-action="previous">이전</button><button class="primary" id="next" data-action="next">다음</button></div>`:`<div class="eyebrow">QT JOURNAL · ${reference(c)}</div><h1>${parts[stage-1]}하기</h1>${readingContext(c,r)}<label for="reflection" class="sr-only">나의 ${parts[stage-1]}</label><textarea id="reflection">${escapeHTML(r[fields[stage-1]])}</textarea><div class="actions"><button class="text-button" data-action="previous">이전</button><button class="primary" id="next" data-action="next" ${r[fields[stage-1]]?.trim()?'':'disabled'}>${stage===3?'묵상 완료하기':'다음'}</button></div>`}`;
 }
 function journalCard(date,c,r,old=false) {
   const title=old?'이전 말씀 묵상':reference(c,r.start,r.end);
@@ -293,7 +293,7 @@ function journalCard(date,c,r,old=false) {
 function journal() {
  const dates=[...new Set([...Object.keys(data),...Object.keys(legacy),...Object.keys(readingData)])].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse();
  const cards=dates.map(date=>ALL_CHAPTERS.map(c=>Object.values(record(c.id,date).sessions||{}).filter(r=>validRange(c,r.start,r.end)&&((r.read||[]).length||fields.some(f=>r[f]))).map(r=>journalCard(date,c,r)).join('')).join('')+(legacy[date]&&fields.some(f=>legacy[date][f])?journalCard(date,null,legacy[date],true):'')).join('');
- content.innerHTML=`<div class="eyebrow">MY QUIET TIME</div><h1>나의 묵상</h1><p class="intro">한 장의 말씀, 나만의 이야기.</p><button class="outline-button" data-action="export">전체 기록 백업</button>${cards||'<div class="empty">📖<p>아직 기록이 없어요.<br>홈에서 첫 말씀을 열어 보세요.</p><button class="primary" data-page="home">말씀 읽으러 가기</button></div>'}`;
+ content.innerHTML=`<div class="eyebrow">MY QUIET TIME</div><h1>나의 묵종</h1><p class="intro">한 장의 말씀, 나만의 이야기.</p>${cards||'<div class="empty">📖<p>아직 기록이 없어요.<br>홈에서 첫 말씀을 열어 보세요.</p><button class="primary" data-page="home">말씀 읽으러 가기</button></div>'}`;
 }
 function readingDates() {
   return Object.keys(readingData).filter(date=>validDay(date)&&date<=today).sort();
@@ -323,7 +323,7 @@ function activity() {
     const count=chapters.reduce((sum,item)=>sum+item.times,0);
     return {book,count,chapters};
   }).filter(item=>item.count>0);
-  content.innerHTML=`<h1>현황</h1><div class="activity-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${dates.length}일</h2><p>완료 일수</p></section></div>${activityCalendar()}<section class="card book-reading"><h2>말씀 읽기 현황</h2><p>오늘 ${readChapters().length} / 목표 ${profile.dailyGoal}장 · 누적 ${total}장</p>${books.length?`<ul class="book-reading-list">${books.map(({book,count,chapters})=>`<li data-book="${book.id}"><details class="book-reading-detail"><summary><span>${book.name}</span><strong>${count}장</strong></summary><div class="read-chapter-list" aria-label="${book.name} 읽은 장">${chapters.map(({chapter,times})=>`<span class="read-chapter">${chapter.chapter}장${times>1?`<small>${times}회</small>`:''}</span>`).join('')}</div></details></li>`).join('')}</ul><p class="reading-count-note">다른 날에 다시 읽은 장도 누적에 포함해요.</p>`:'<p>아직 읽은 장이 없어요.</p>'}</section>`;
+  content.innerHTML=`<h1>기록</h1><div class="activity-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${dates.length}일</h2><p>완료 일수</p></section></div>${activityCalendar()}<section class="card book-reading"><h2>말씀 읽기 현황</h2><p>오늘 ${readChapters().length} / 목표 ${profile.dailyGoal}장 · 누적 ${total}장</p>${books.length?`<ul class="book-reading-list">${books.map(({book,count,chapters})=>`<li data-book="${book.id}"><details class="book-reading-detail"><summary><span>${book.name}</span><strong>${count}장</strong></summary><div class="read-chapter-list" aria-label="${book.name} 읽은 장">${chapters.map(({chapter,times})=>`<span class="read-chapter">${chapter.chapter}장${times>1?`<small>${times}회</small>`:''}</span>`).join('')}</div></details></li>`).join('')}</ul><p class="reading-count-note">다른 날에 다시 읽은 장도 누적에 포함해요.</p>`:'<p>아직 읽은 장이 없어요.</p>'}</section>`;
 }
 function success() {content.innerHTML=`<section class="success"><div class="eyebrow">WELL DONE!</div><div class="medal">🏅</div><h1>말씀을 마음에 심었어요!</h1><p>${reference()} · ${selectedVerses().length}절 묵상 완료<br>오늘의 작은 실천을 응원해요.</p>${friendsArt('손을 흔들며 축하하는 뮤니, 코, 타스')}<section class="card"><h3>🔥 ${streak()}일 연속학습</h3><p>읽기 ${readVerses(selected,selectedDate).length} / ${chapter().verses.length}절 · ${readVerses(selected,selectedDate).length===chapter().verses.length?'한 장을 모두 읽었어요!':'남은 말씀도 언제든 이어 읽을 수 있어요.'}</p></section><button class="primary wide" data-action="open-share">묵상 공유하기</button><button class="outline-button wide success-continue" data-page="home">홈 화면으로 돌아가기</button></section>`;}
 function openShare({id=selected,date=selectedDate,start=rangeStart,end=rangeEnd}={}) {
@@ -379,16 +379,16 @@ function closeShare() {document.querySelector('#share-dialog').close();clearShar
 document.querySelector('#share-dialog').addEventListener('cancel',clearShare);
 document.querySelector('#share-dialog').addEventListener('close',()=>{if(!document.querySelector('#share-dialog').open)clearShare();});
 function conflictLabel(path) {
-  const labels={profile:'계정',chapters:'QT',reading:'말씀 읽기',legacyEntries:'이전 묵상',observation:'관찰',interpretation:'해석',application:'적용',completed:'완료',completedSteps:'QT 진행',name:'이름',avatar:'캐릭터',qtBookId:'큐티말씀',readingBookId:'말씀',dailyGoal:'목표',completionRule:'완료 조건',skipSundayQt:'일요일 QT',rules:'완료 기준',sessions:'',lastRange:'말씀 범위',start:'시작 절',end:'끝 절'};
+  const labels={profile:'계정',chapters:'QT',reading:'말씀 읽기',legacyEntries:'이전 묵상',observation:'관찰',interpretation:'해석',application:'적용',completed:'완료',completedSteps:'QT 진행',name:'이름',avatar:'캐릭터',qtBookId:'QT',readingBookId:'말씀',dailyGoal:'목표',completionRule:'완료 조건',skipSundayQt:'일요일 QT',rules:'완료 기준',sessions:'',lastRange:'말씀 범위',start:'시작 절',end:'끝 절'};
   return path.map(key=>labels[key]??(CHAPTER_BY_ID.has(key)?`${CHAPTER_BY_ID.get(key).book} ${CHAPTER_BY_ID.get(key).chapter}장`:key)).filter(Boolean).join(' · ');
 }
 function cloudAccountHTML() {
   const a=cloudAccount;
   if(!a?.client)return '<h2>로그인</h2><p>구글 계정으로 기록을 저장하고 다른 기기에서 이어 볼 수 있어요.</p><button type="button" class="outline-button wide" disabled>구글로 로그인</button><p class="cloud-note">로그인은 연결 설정 후 이용할 수 있어요. 현재 기록은 이 기기에 저장됩니다.</p>';
-  const messages={guest:'현재 기록은 이 기기에 저장됩니다.',loading:'계정 기록을 불러오는 중이에요.',syncing:'계정에 저장하는 중이에요.',pending:'이 기기에 저장했어요. 동기화를 기다리고 있어요.',synced:'계정에 저장했어요.',error:'기기에 저장된 기록을 유지하고 있어요. 연결을 확인한 후 다시 동기화해 주세요.','auth-error':'로그인 요청을 완료하지 못했어요. 다시 시도해 주세요.',conflict:'같은 기록이 서로 다르게 수정됐어요. 아래 내용을 비교하고 저장할 내용을 선택해 주세요.'};
+  const messages={guest:'현재 기록은 이 기기에 저장됩니다.',loading:'계정 기록을 불러오는 중이에요.',syncing:'계정에 저장하는 중이에요.',pending:'이 기기에 저장했어요. 동기화를 기다리고 있어요.',synced:'계정에 저장했어요.',error:'기기에 저장된 기록을 유지하고 있어요. 연결되면 자동으로 다시 저장합니다.','auth-error':'로그인 요청을 완료하지 못했어요. 다시 시도해 주세요.',conflict:'같은 기록이 서로 다르게 수정됐어요. 아래 내용을 비교하고 저장할 내용을 선택해 주세요.'};
   if(!a.user)return `<h2>로그인</h2><p>구글 계정으로 기록을 저장하고 다른 기기에서 이어 볼 수 있어요.</p><button type="button" class="primary wide" data-action="cloud-login">구글로 로그인</button><p class="cloud-note" role="status">${messages[a.status]||messages.guest}</p>`;
   const conflict=a.conflicts.length?`<details class="sync-conflicts" open><summary>다르게 수정된 항목 ${a.conflicts.length}개</summary>${a.conflicts.map(c=>`<section><h3>${escapeHTML(conflictLabel(c.path))}</h3><label>이 기기${a.importing?'의 기존 기록':''}<textarea readonly>${escapeHTML(typeof c.local==='string'?c.local:JSON.stringify(c.local)??'내용 없음')}</textarea></label><label>${a.importing?'계정':'다른 기기'}<textarea readonly>${escapeHTML(typeof c.remote==='string'?c.remote:JSON.stringify(c.remote)??'내용 없음')}</textarea></label></section>`).join('')}<div class="sync-actions"><button type="button" class="outline-button" data-action="cloud-local">이 기기 내용 사용</button><button type="button" class="outline-button" data-action="cloud-remote">${a.importing?'계정':'다른 기기'} 내용 사용</button></div></details>`:'';
-  return `<h2>로그인한 계정</h2><p class="cloud-identity">${escapeHTML(a.user.email||'구글 계정')}</p><p class="cloud-status" role="status">${messages[a.status]||messages.pending}</p>${conflict}<div class="sync-actions"><button type="button" class="outline-button" data-action="cloud-sync" ${['syncing','loading','conflict'].includes(a.status)?'disabled':''}>지금 동기화</button><button type="button" class="text-button" data-action="cloud-logout">로그아웃</button></div>${accountStore.hasGuest()?'<div class="guest-import"><p>이 기기에 로그인 전 기록이 있어요.</p><button type="button" class="outline-button wide" data-action="cloud-import" '+(['syncing','loading','conflict'].includes(a.status)?'disabled':'')+'>기존 기록을 계정으로 가져오기</button><p class="cloud-note">가져온 뒤에도 로그인 전 기록은 이 기기에 남습니다.</p></div>':''}`;
+  return `<h2>로그인한 계정</h2><p class="cloud-identity">${escapeHTML(a.user.email||'구글 계정')}</p><p class="cloud-status" role="status">${messages[a.status]||messages.pending}</p>${conflict}<div class="sync-actions"><button type="button" class="text-button" data-action="cloud-logout">로그아웃</button></div>`;
 }
 function updateCloudAccountUI() {
   const section=document.querySelector('#cloud-account');if(section)section.innerHTML=cloudAccountHTML();
@@ -425,13 +425,13 @@ async function startCloudAccount() {
 }
 function account() {
   const avatar=AVATARS[profile.avatar];
-  content.innerHTML=`<h1>계정</h1><section id="cloud-account" class="card cloud-account" aria-label="로그인과 동기화">${cloudAccountHTML()}</section><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatar.emoji}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>${cloudAccount?.user?'계정에 저장되는 프로필':'이 브라우저에 저장되는 프로필'}</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">큐티말씀</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><p class="settings-note">말씀 목표는 QT와 별도로 집계합니다. 일요일 QT를 끄면 ‘QT만’에서는 쉬는 날로 처리하며, 나머지 조건에서는 말씀 목표를 채워야 합니다. 변경한 목표와 완료 조건은 오늘부터 적용됩니다.</p><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span><i aria-hidden="true">${value.emoji}</i>${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><button class="outline-button" data-action="export">전체 기록 백업</button><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
+  content.innerHTML=`<h1>계정</h1><section id="cloud-account" class="card cloud-account" aria-label="로그인과 동기화">${cloudAccountHTML()}</section><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatar.emoji}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>${cloudAccount?.user?'계정에 저장되는 프로필':'이 브라우저에 저장되는 프로필'}</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">QT</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><p class="settings-note">말씀 목표는 QT와 별도로 집계합니다. 일요일 QT를 끄면 ‘QT만’에서는 쉬는 날로 처리하며, 나머지 조건에서는 말씀 목표를 채워야 합니다. 변경한 목표와 완료 조건은 오늘부터 적용됩니다.</p><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span><i aria-hidden="true">${value.emoji}</i>${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
 }
 document.addEventListener('change',e=>{
   const id=e.target.id;
   if(['qt-book','reading-book'].includes(id)){
     const book=BOOKS.find(b=>b.id===e.target.value);if(!book)return;
-    const field=id==='qt-book'?'qtBookId':'readingBookId',label=id==='qt-book'?'큐티말씀':'말씀';
+    const field=id==='qt-book'?'qtBookId':'readingBookId',label=id==='qt-book'?'QT':'말씀';
     const nextProfile={...profile,[field]:book.id};
     try{accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;}
     catch{e.target.value=profile[field];toast(`${label}을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.`);}
@@ -488,8 +488,6 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b||b.disabled)return;
  if(b.dataset.action==='cloud-login')void cloudAccount.login(location.origin+location.pathname);
  if(b.dataset.action==='cloud-logout')void cloudAccount.logout();
- if(b.dataset.action==='cloud-sync')void cloudAccount.sync();
- if(b.dataset.action==='cloud-import')void cloudAccount.importGuest();
  if(b.dataset.action==='cloud-local')void cloudAccount.resolve('local');
  if(b.dataset.action==='cloud-remote')void cloudAccount.resolve('remote');
  if(b.dataset.page){render(b.dataset.page);window.scrollTo({top:0,behavior:'instant'});}
@@ -522,13 +520,12 @@ document.addEventListener('click',e=>{
   else if(!sessionRecord()[fields[stage-1]]?.trim())return;
   else if(stage<3)updateRecord({completedSteps:Math.max(DailyProgress.qtSteps(sessionRecord()),stage+1)});
   if(stage<3){stage++;render('editor');}
-  else if(fields.every(f=>sessionRecord()[f]?.trim())&&sessionRecord().read?.length){const ok=updateRecord({completed:true,completedSteps:4});render('success');if(!ok)toast('기록이 메모리에만 있어요. 파일로 백업해 주세요.');}
+  else if(fields.every(f=>sessionRecord()[f]?.trim())&&sessionRecord().read?.length){const ok=updateRecord({completed:true,completedSteps:4});render('success');if(!ok)toast('기기에 기록을 저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.');}
   else toast('읽은 절과 관찰·해석·적용을 확인해 주세요.');
   window.scrollTo({top:0,behavior:'instant'});
  }
- if(b.dataset.action==='export'){const blob=new Blob([JSON.stringify({version:4,exportedAt:new Date().toISOString(),profile,chapters:data,reading:readingData,legacyEntries:legacy},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`quolingo-${today}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('전체 기록을 파일로 백업했어요.');}
 });
-function refreshDay(){if(today!==dayKey()){rememberDailyRules(today);today=dayKey();selectedDate=today;activityMonth=today.slice(0,7);activityDate=today;stage=0;render('home');toast('새 하루가 시작됐어요. 이전 기록은 나의 묵상에 있어요.');}}
+function refreshDay(){if(today!==dayKey()){rememberDailyRules(today);today=dayKey();selectedDate=today;activityMonth=today.slice(0,7);activityDate=today;stage=0;render('home');toast('새 하루가 시작됐어요. 이전 기록은 나의 묵종에 있어요.');}}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDay();});setInterval(refreshDay,30000);
 if(savedProfile.completionRule==='either') {
   // Remove the retired choice from the current profile, keeping past daily rules intact.
