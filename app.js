@@ -102,12 +102,16 @@ function setChapterRead(id=selected,date=selectedDate,read=true) {
   try { localStorage.setItem(READING_KEY,JSON.stringify(next)); }
   catch { toast('읽기 기록을 저장할 수 없어요. 다시 시도해 주세요.');return; }
   readingData=next;render(page);
+  if(page==='reader')document.querySelector('[data-action="read-chapter"]').focus({preventScroll:true});
   if(!read)toast('읽기 완료를 취소했어요.');
 }
-function dateReadCount(date) { return ALL_CHAPTERS.reduce((sum,c)=>sum+readVerses(c.id,date).length,0); }
+function qtVerseCount(date) { return ALL_CHAPTERS.reduce((sum,c)=>sum+readVerses(c.id,date).length,0); }
+function dateReadCount(date) {
+  return qtVerseCount(date)+readChapters(date).reduce((sum,id)=>sum+CHAPTER_BY_ID.get(id).verses.length,0);
+}
 function todayCount() { return dateReadCount(today); }
 function allTimeCount() {
-  return Object.keys(data).filter(date=>validDay(date)&&date<=today).reduce((sum,date)=>sum+dateReadCount(date),0);
+  return [...new Set([...Object.keys(data),...Object.keys(readingData)])].filter(date=>validDay(date)&&date<=today).reduce((sum,date)=>sum+dateReadCount(date),0);
 }
 function validDay(date) {
   if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))return false;
@@ -127,30 +131,63 @@ function monthWeek(date) {
   const offset=(new Date(first+'T12:00:00+09:00').getUTCDay()+6)%7;
   return Math.floor((offset+Number(date.slice(8))-1)/7);
 }
-function dayReadingPercent(date) {
-  const started=ALL_CHAPTERS.filter(c=>readVerses(c.id,date).length);
-  const total=started.reduce((sum,c)=>sum+c.verses.length,0);
-  return total?dateReadCount(date)/total*100:0;
+function dayQTPercent(date) {
+  if(qtCompletedDay(date))return 100;
+  const steps=ALL_CHAPTERS.flatMap(c=>Object.values(record(c.id,date).sessions||{}).filter(r=>validRange(c,r.start,r.end)).map(DailyProgress.qtSteps));
+  return Math.max(0,...steps)*25;
 }
 function toast(message) { const el=document.querySelector('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3500); }
 function updateStats() {
   const count=todayCount(), days=streak();
   document.querySelectorAll('[data-stat="streak"]').forEach(el=>el.textContent=days);
-  document.querySelectorAll('[data-stat="total"]').forEach(el=>el.textContent=count);
+  document.querySelectorAll('[data-stat="total"]').forEach(el=>{el.textContent=count;el.closest('button')?.setAttribute('aria-label',`오늘 읽은 말씀 ${count}절 · 읽기 현황 열기`);});
   document.querySelectorAll('[data-profile-avatar]').forEach(el=>el.textContent=profile.name?AVATARS[profile.avatar].emoji:'👤');
   const weekday=new Date(today+'T12:00:00+09:00').getUTCDay();const monday=shiftDay(today,-((weekday+6)%7));
   document.querySelector('#week').innerHTML=['월','화','수','목','금','토','일'].map((label,i)=>{
     const date=shiftDay(monday,i),state=dailyState(date),done=state.complete;
-    return `<div class="day ${date===today?'today':''} ${done?'checked':''}" data-date="${date}" aria-label="${date} ${label}요일 ${done?'하루 완료':state.rest?'QT 쉬는 날':'미완료'}"><span>${label}</span><i aria-hidden="true">${done?checkMark():state.rest?'–':'·'}</i></div>`;
+    return `<div class="day ${date===today?'today':''} ${done?'checked':''}" data-date="${date}" aria-label="${date} ${label}요일 ${done?'완료':state.rest?'QT 쉬는 날':'미완료'}"><span>${label}</span><i aria-hidden="true">${done?checkMark():state.rest?'–':'·'}</i></div>`;
   }).join('');
   const goal=profile.dailyGoal,read=readChapters().length;
   document.querySelector('#reading-goal').innerHTML=`<div class="card-heading"><h3>오늘의 말씀 목표</h3><span>📖</span></div><p class="goal-count"><strong>${read}</strong> / ${goal}장</p><p class="goal-label">목표 ${goal}장 · 오늘 ${read}장 읽음</p><progress max="${goal}" value="${Math.min(read,goal)}" aria-label="오늘 말씀 읽기 ${read}장, 목표 ${goal}장"></progress>`;
 }
-function render(target=page) {
+let lastRoute=null;
+const routeScrolls=new Map();
+function routeState(target=page) {
+  return {page:target,mode,stage,selected,selectedDate,rangeStart,rangeEnd,activityMonth,activityDate};
+}
+function routeKey(route) { return JSON.stringify(route); }
+function restoreRoute(route) {
+  if(!route||!['home','selection','wordSelection','reader','editor','journal','activity','success','account'].includes(route.page)||!CHAPTER_BY_ID.has(route.selected)||!validDay(route.selectedDate)||route.selectedDate>today)return false;
+  if(!Number.isInteger(route.stage)||route.stage<0||route.stage>3)return false;
+  if(['editor','selection','success'].includes(route.page)&&!validRange(CHAPTER_BY_ID.get(route.selected),route.rangeStart,route.rangeEnd))return false;
+  if(!validDay(route.activityMonth+'-01')||!validDay(route.activityDate)||route.activityDate>today)return false;
+  ({mode,stage,selected,selectedDate,rangeStart,rangeEnd,activityMonth,activityDate}=route);
+  return true;
+}
+function render(target=page,historyMode='auto') {
   releaseHeldButton();clearTimeout(openingDayTimer);openingDayTimer=null;
+  const route=routeState(target),changed=lastRoute&&routeKey(lastRoute)!==routeKey(route);
+  if(historyMode!=='none') {
+    if(changed&&historyMode!=='replace') {
+      routeScrolls.set(routeKey(lastRoute),scrollY);
+      history.replaceState({quolingo:lastRoute,scroll:scrollY},'');
+      history.pushState({quolingo:route,scroll:0},'');
+    } else history.replaceState({quolingo:route,scroll:scrollY},'');
+  }
+  lastRoute=route;
   page=target; document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===page || ['editor','selection','wordSelection','reader'].includes(page)&&b.dataset.page==='home'));
   ({home,selection,wordSelection,reader,editor,journal,activity,success,account}[page] || home)();updateStats();
 }
+history.scrollRestoration='manual';
+window.addEventListener('popstate',event=>{
+  if(lastRoute)routeScrolls.set(routeKey(lastRoute),scrollY);
+  if(document.querySelector('#share-dialog').open)closeShare();
+  const route=event.state?.quolingo;
+  if(!restoreRoute(route))return;
+  render(route.page,'none');
+  const top=routeScrolls.get(routeKey(route))??event.state.scroll??0;
+  requestAnimationFrame(()=>window.scrollTo({top,behavior:'instant'}));
+});
 function star() { return '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2 4.3 8.7 9.6 1.4-6.9 6.7 1.6 9.5L16 23.8l-8.6 4.5L9 18.8l-6.9-6.7 9.6-1.4Z" fill="currentColor"/></svg>'; }
 function checkMark() { return '<svg class="completion-check" viewBox="0 0 40 40" aria-hidden="true"><path d="m8 20 8 8 16-17" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
 // Body and waving arm are separate sprite regions, joined at each shoulder.
@@ -176,7 +213,7 @@ function home() {
       const state=dailyState(date),done=mode==='qt'?qtCompletedDay(date):state.readingDone,active=date===today,future=date>today,qtOff=mode==='qt'&&state.qtOff;
       const weekday=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'}).format(new Date(date+'T12:00:00+09:00'));
       const companion=i===middle?`<div class="week-companion companion-${side} ${members.length>1?'has-duo':''}" data-character="${friend}" data-preferred-side="${side}" data-side="${side}">${friendsArt(`${week+1}주차 · 인사하는 ${members.map(id=>AVATARS[id].name).join(', ')}`,members)}</div>`:'';
-      return `<div class="chapter-stop stop-${i%6} week-tone-${week} ${i===middle?'has-companion':''}"><button class="chapter-node day-node ${done?'complete':''}" data-action="open-day" data-date="${date}" ${future||qtOff?'disabled':''} ${active?'aria-current="date"':''} aria-label="${date} ${qtOff?'QT 쉬는 날':done?(mode==='qt'?'QT 완료':'말씀 목표 완료'):future?'예정':mode==='qt'?'QT 말씀 선택':'읽을 말씀 선택'}" style="--fill:${mode==='qt'?dayReadingPercent(date):Math.min(100,readChapters(date).length/daySettings(date).dailyGoal*100)}%"><span class="node-core">${done?checkMark():star()}</span></button><time class="day-caption" datetime="${date}">${dateLabel(date)} <span>(${weekday})</span></time>${companion}</div>`;
+      return `<div class="chapter-stop stop-${i%6} week-tone-${week} ${i===middle?'has-companion':''}"><button class="chapter-node day-node ${done?'complete':''}" data-action="open-day" data-date="${date}" ${future||qtOff?'disabled':''} ${active?'aria-current="date"':''} aria-label="${date} ${qtOff?'QT 쉬는 날':done?(mode==='qt'?'QT 완료':'말씀 목표 완료'):future?'예정':mode==='qt'?'QT 말씀 선택':'읽을 말씀 선택'}" style="--fill:${mode==='qt'?dayQTPercent(date):Math.min(100,readChapters(date).length/daySettings(date).dailyGoal*100)}%"><span class="node-core">${done?checkMark():star()}</span></button><time class="day-caption" datetime="${date}">${dateLabel(date)} <span>(${weekday})</span></time>${companion}</div>`;
     }).join('')}</section>`;
   }).join('')}</div>`;
   positionCompanions();
@@ -217,14 +254,14 @@ function openChapter(id, start, end, date=today) {
 }
 function selection() {
   const c=chapter();
-  content.innerHTML=`<div class="editor-head"><button class="back" data-page="home" aria-label="홈 화면으로 돌아가기">홈</button></div><h1>${selectedDate===today?'오늘의 말씀 선택':dateLabel(selectedDate)+' 말씀 선택'}</h1><form id="passage-selection" class="passage-selection"><label for="chapter-select">말씀</label><select id="chapter-select" name="chapter">${selectionChapters().map(item=>`<option value="${item.id}" ${item.id===selected?'selected':''}>${chapterLabel(item)}</option>`).join('')}</select><div class="range-fields"><div><label for="start-verse">시작 절</label><select id="start-verse" name="start">${c.verses.map((_,i)=>`<option value="${i+1}" ${rangeStart===i+1?'selected':''}>${i+1}절</option>`).join('')}</select></div><span aria-hidden="true">–</span><div><label for="end-verse">끝 절</label><select id="end-verse" name="end">${c.verses.map((_,i)=>i+1).filter(n=>n>=rangeStart).map(n=>`<option value="${n}" ${rangeEnd===n?'selected':''}>${n}절</option>`).join('')}</select></div></div><div class="range-preview" aria-live="polite"><strong>${reference()}</strong><span>${selectedVerses().length}절</span></div><button type="submit" class="primary wide">이 말씀으로 QT 시작하기</button></form>`;
+  content.innerHTML=`<h1>${selectedDate===today?'오늘의 말씀 선택':dateLabel(selectedDate)+' 말씀 선택'}</h1><form id="passage-selection" class="passage-selection"><label for="chapter-select">말씀</label><select id="chapter-select" name="chapter">${selectionChapters().map(item=>`<option value="${item.id}" ${item.id===selected?'selected':''}>${chapterLabel(item)}</option>`).join('')}</select><div class="range-fields"><div><label for="start-verse">시작 절</label><select id="start-verse" name="start">${c.verses.map((_,i)=>`<option value="${i+1}" ${rangeStart===i+1?'selected':''}>${i+1}절</option>`).join('')}</select></div><span aria-hidden="true">–</span><div><label for="end-verse">끝 절</label><select id="end-verse" name="end">${c.verses.map((_,i)=>i+1).filter(n=>n>=rangeStart).map(n=>`<option value="${n}" ${rangeEnd===n?'selected':''}>${n}절</option>`).join('')}</select></div></div><div class="range-preview" aria-live="polite"><strong>${reference()}</strong><span>${selectedVerses().length}절</span></div><div class="actions"><button type="button" class="text-button" data-page="home">이전</button><button type="submit" class="primary">다음</button></div></form>`;
 }
 function wordSelection() {
-  content.innerHTML=`<div class="editor-head"><button class="back" data-page="home" aria-label="홈 화면으로 돌아가기">홈</button></div><h1>${dateLabel(selectedDate)} 말씀 읽기</h1><form id="word-selection" class="passage-selection"><label for="word-chapter">말씀</label><select id="word-chapter" name="chapter">${readingChapters().map(c=>`<option value="${c.id}" ${c.id===selected?'selected':''}>${chapterLabel(c)}${readChapters(selectedDate).includes(c.id)?' ✓':''}</option>`).join('')}</select><button class="primary wide" type="submit">말씀 읽기</button></form>`;
+  content.innerHTML=`<h1>${dateLabel(selectedDate)} 말씀 읽기</h1><form id="word-selection" class="passage-selection"><label for="word-chapter">말씀</label><select id="word-chapter" name="chapter">${selectionChapters().map(c=>`<option value="${c.id}" ${c.id===selected?'selected':''}>${chapterLabel(c)}${readChapters(selectedDate).includes(c.id)?' ✓':''}</option>`).join('')}</select><div class="actions"><button type="button" class="text-button" data-page="home">이전</button><button class="primary" type="submit">다음</button></div></form>`;
 }
 function reader() {
-  const c=chapter(),done=readChapters(selectedDate).includes(selected),chapters=readingChapters(),index=chapters.findIndex(item=>item.id===selected),next=chapters[index+1];
-  content.innerHTML=`<div class="editor-head"><button class="back" data-action="word-reselect" aria-label="읽을 장 다시 선택">장 선택</button><span>${dateLabel(selectedDate)} · 말씀 읽기</span></div><h1>${c.book} ${c.chapter}장</h1><p class="reader-count">이날 읽은 말씀 ${readChapters(selectedDate).length}장 · 목표 ${daySettings(selectedDate).dailyGoal}장</p><ol class="verses">${c.verses.map((text,i)=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${i+1}</span><span>${escapeHTML(text)}</span></li>`).join('')}</ol><button class="primary wide" data-action="read-chapter" ${done?'disabled':''}>${done?'이 장 읽기 완료 ✓':'이 장 읽기 완료'}</button>${done?'<button class="text-button cancel-reading" data-action="unread-chapter">읽기 완료 취소</button>':''}${done&&next?`<button class="outline-button wide next-chapter" data-action="next-chapter" data-next="${next.id}">다음 장 읽기</button>`:''}<button class="text-button" data-page="home">홈 화면으로 돌아가기</button>`;
+  const c=chapter(),done=readChapters(selectedDate).includes(selected),chapters=selectionChapters(),index=chapters.findIndex(item=>item.id===selected),previous=chapters[index-1],next=chapters[index+1];
+  content.innerHTML=`<div class="editor-head"><span>${dateLabel(selectedDate)} · 말씀 읽기</span></div><h1><button class="chapter-title" data-action="word-reselect" aria-label="${c.book} ${c.chapter}장 · 읽을 장 선택">${c.book} ${c.chapter}장</button></h1><p class="reader-count">이날 읽은 말씀 ${readChapters(selectedDate).length}장 · 목표 ${daySettings(selectedDate).dailyGoal}장</p><ol class="verses">${c.verses.map((text,i)=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${i+1}</span><span>${escapeHTML(text)}</span></li>`).join('')}</ol><button class="primary wide read-toggle" data-action="read-chapter" aria-pressed="${done}" aria-label="${c.book} ${c.chapter}장 ${done?'읽기 완료 취소':'읽기 완료'}">이 장 읽기 완료${done?' ✓':''}</button><div class="actions chapter-navigation"><button class="outline-button" data-action="previous-chapter" data-next="${previous?.id||''}" ${previous?'':'disabled'}>이전 장</button><button class="outline-button" data-action="next-chapter" data-next="${next?.id||''}" ${next?'':'disabled'}>다음 장</button></div><button class="text-button" data-page="home">홈 화면으로 돌아가기</button>`;
 }
 function readingContext(c, r) {
   const previousField = stage === 2 ? 'observation' : stage === 3 ? 'interpretation' : null;
@@ -235,7 +272,7 @@ function readingContext(c, r) {
 }
 function editor() {
   const c=chapter(),r=sessionRecord();
-  content.innerHTML=`<div class="editor-head"><button class="back" data-action="reselect" aria-label="말씀 범위 다시 선택">범위 선택</button><span>${dateLabel(selectedDate)} · ${reference(c)}</span><span>${stage+1} / 4</span></div><div class="editor-progress">${[0,1,2,3].map(i=>`<span class="${i<=stage?'filled':''}"></span>`).join('')}</div>${stage===0?`<div class="reading-title"><div><div class="eyebrow">WORD OF THE DAY</div><h1>${reference(c)}</h1><p>${c.title?c.title+' · ':''}개역한글</p></div><span class="reading-count">${selectedVerses().length}절</span></div><ol class="verses">${selectedVerses().map(n=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${n}</span><span>${escapeHTML(c.verses[n-1])}</span></li>`).join('')}</ol><button class="primary wide" id="next" data-action="next">말씀을 읽었어요</button>`:`<div class="eyebrow">QT JOURNAL · ${reference(c)}</div><h1>${parts[stage-1]}하기</h1>${readingContext(c,r)}<label for="reflection" class="sr-only">나의 ${parts[stage-1]}</label><textarea id="reflection">${escapeHTML(r[fields[stage-1]])}</textarea><div class="actions"><button class="text-button" data-action="previous">이전</button><button class="primary" id="next" data-action="next" ${r[fields[stage-1]]?.trim()?'':'disabled'}>${stage===3?'묵상 완료하기 ✓':'다음으로'}</button></div>`}`;
+  content.innerHTML=`<div class="editor-head"><button class="passage-title" data-action="reselect" aria-label="${reference(c)} · 말씀 선택">${dateLabel(selectedDate)} · ${reference(c)}</button><span>${stage+1} / 4</span></div><div class="editor-progress">${[0,1,2,3].map(i=>`<span class="${i<=stage?'filled':''}"></span>`).join('')}</div>${stage===0?`<div class="reading-title"><div><div class="eyebrow">WORD OF THE DAY</div><h1>${reference(c)}</h1><p>${c.title?c.title+' · ':''}개역한글</p></div><span class="reading-count">${selectedVerses().length}절</span></div><ol class="verses">${selectedVerses().map(n=>`<li class="verse-row"><span class="verse-number" aria-hidden="true">${n}</span><span>${escapeHTML(c.verses[n-1])}</span></li>`).join('')}</ol><div class="actions"><button class="text-button" data-action="previous">이전</button><button class="primary" id="next" data-action="next">다음</button></div>`:`<div class="eyebrow">QT JOURNAL · ${reference(c)}</div><h1>${parts[stage-1]}하기</h1>${readingContext(c,r)}<label for="reflection" class="sr-only">나의 ${parts[stage-1]}</label><textarea id="reflection">${escapeHTML(r[fields[stage-1]])}</textarea><div class="actions"><button class="text-button" data-action="previous">이전</button><button class="primary" id="next" data-action="next" ${r[fields[stage-1]]?.trim()?'':'disabled'}>${stage===3?'묵상 완료하기 ✓':'다음'}</button></div>`}`;
 }
 function journalCard(date,c,r,old=false) {
   const title=old?'이전 말씀 묵상':reference(c,r.start,r.end);
@@ -255,13 +292,13 @@ function activityCalendar() {
   const monthLabel=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'long'}).format(new Date(dates[0]+'T12:00:00+09:00'));
   const completed=elapsed.filter(completedDay).length,qt=elapsed.filter(qtCompletedDay).length;
   const chapters=elapsed.reduce((sum,date)=>sum+readChapters(date).length,0);
-  return `<section class="card activity-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><h2 id="calendar-title">${monthLabel}</h2><div class="calendar-navigation"><button class="text-button" data-action="activity-month" data-shift="-1" aria-label="이전 달">이전 달</button><button class="text-button" data-action="activity-month" data-shift="1" ${activityMonth>=today.slice(0,7)?'disabled':''} aria-label="다음 달">다음 달</button></div></div><div class="month-totals"><span>하루 완료 <strong>${completed}일</strong></span><span>QT <strong>${qt}일</strong></span><span>말씀 <strong>${chapters}장</strong></span></div><div class="calendar-grid" role="group" aria-label="${monthLabel} 읽기 달력">${['월','화','수','목','금','토','일'].map(label=>`<span class="calendar-weekday" aria-hidden="true">${label}</span>`).join('')}${'<span class="calendar-blank" aria-hidden="true"></span>'.repeat(offset)}${dates.map(date=>{
+  return `<section class="card activity-calendar" aria-labelledby="calendar-title"><div class="calendar-heading"><h2 id="calendar-title">${monthLabel}</h2><div class="calendar-navigation"><button class="text-button" data-action="activity-month" data-shift="-1" aria-label="이전 달">이전 달</button><button class="text-button" data-action="activity-month" data-shift="1" ${activityMonth>=today.slice(0,7)?'disabled':''} aria-label="다음 달">다음 달</button></div></div><div class="month-totals"><span>완료 <strong>${completed}일</strong></span><span>QT <strong>${qt}일</strong></span><span>말씀 <strong>${chapters}장</strong></span></div><div class="calendar-grid" role="group" aria-label="${monthLabel} 읽기 달력">${['월','화','수','목','금','토','일'].map(label=>`<span class="calendar-weekday" aria-hidden="true">${label}</span>`).join('')}${'<span class="calendar-blank" aria-hidden="true"></span>'.repeat(offset)}${dates.map(date=>{
     const state=dailyState(date),qtDone=qtCompletedDay(date),count=readChapters(date).length,future=date>today;
-    const status=state.complete?'하루 완료':state.rest?'QT 쉬는 날':'하루 미완료';
+    const status=state.complete?'완료':state.rest?'QT 쉬는 날':'미완료';
     return `<button class="calendar-day ${state.complete?'is-complete':''}" data-action="activity-date" data-date="${date}" aria-label="${dateLabel(date)}, ${status}, QT ${qtDone?'완료':'미완료'}, 말씀 ${count}장" aria-pressed="${date===activityDate}" ${date===today?'aria-current="date"':''} ${future?'disabled':''}><time datetime="${date}">${Number(date.slice(8))}</time><span class="calendar-completion" aria-hidden="true">${state.complete?checkMark():state.rest?'–':''}</span><span class="calendar-reading" aria-hidden="true">${qtDone?'QT':''}${qtDone&&count?' · ':''}${count?count+'장':''}</span></button>`;
-  }).join('')}</div><p class="calendar-legend">체크: 하루 완료 · QT: 묵상 완료 · 장: 말씀 읽기</p><section class="calendar-detail" aria-live="polite"><h3>${dateLabel(activityDate)}</h3><p>QT ${qtCompletedDay(activityDate)?'완료':dailyState(activityDate).qtOff?'쉬는 날':'미완료'} · 말씀 ${readChapters(activityDate).length} / 목표 ${daySettings(activityDate).dailyGoal}장</p>${readChapters(activityDate).length?`<ul class="daily-reading-list">${readChapters(activityDate).map(id=>{
+  }).join('')}</div><p class="calendar-legend">체크: 완료 · QT: 묵상 완료 · 장: 말씀 읽기</p><section class="calendar-detail" aria-live="polite"><h3>${dateLabel(activityDate)}</h3><p>QT ${qtCompletedDay(activityDate)?'완료':dailyState(activityDate).qtOff?'쉬는 날':'미완료'} · 말씀 ${readChapters(activityDate).length} / 목표 ${daySettings(activityDate).dailyGoal}장</p>${readChapters(activityDate).length?`<ul class="daily-reading-list">${readChapters(activityDate).map(id=>{
     const c=CHAPTER_BY_ID.get(id);
-    return `<li><span>${c.book} ${c.chapter}장</span><button class="text-button" data-action="unread-chapter" data-reading-id="${id}" data-date="${activityDate}" aria-label="${dateLabel(activityDate)} ${c.book} ${c.chapter}장 읽기 완료 취소">완료 취소</button></li>`;
+    return `<li><button class="text-button reading-record" data-action="open-reading" data-reading-id="${id}" data-date="${activityDate}">${c.book} ${c.chapter}장</button></li>`;
   }).join('')}</ul>`:'<p class="no-reading">읽은 장이 없어요.</p>'}</section></section>`;
 }
 function activity() {
@@ -272,7 +309,7 @@ function activity() {
     const count=readDates.reduce((sum,date)=>sum+readChapters(date).filter(id=>ids.has(id)).length,0);
     return {book,count};
   }).filter(item=>item.count>0);
-  content.innerHTML=`<h1>읽기 현황</h1><div class="activity-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${dates.length}일</h2><p>하루 완료 일수</p></section></div>${activityCalendar()}<section class="card book-reading"><h2>권별 읽기 현황</h2><p>오늘 ${readChapters().length} / 목표 ${profile.dailyGoal}장 · 누적 ${total}장</p>${books.length?`<ul class="book-reading-list">${books.map(({book,count})=>`<li data-book="${book.id}"><span>${book.name}</span><strong>${count}장</strong></li>`).join('')}</ul><p class="reading-count-note">다른 날에 다시 읽은 장도 누적에 포함해요.</p>`:'<p>아직 읽은 장이 없어요.</p>'}</section>`;
+  content.innerHTML=`<h1>읽기 현황</h1><div class="activity-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${dates.length}일</h2><p>완료 일수</p></section></div>${activityCalendar()}<section class="card book-reading"><h2>권별 읽기 현황</h2><p>오늘 ${readChapters().length} / 목표 ${profile.dailyGoal}장 · 누적 ${total}장</p>${books.length?`<ul class="book-reading-list">${books.map(({book,count})=>`<li data-book="${book.id}"><span>${book.name}</span><strong>${count}장</strong></li>`).join('')}</ul><p class="reading-count-note">다른 날에 다시 읽은 장도 누적에 포함해요.</p>`:'<p>아직 읽은 장이 없어요.</p>'}</section>`;
 }
 function success() {content.innerHTML=`<section class="success"><div class="eyebrow">WELL DONE!</div><div class="medal">🏅</div><h1>말씀을 마음에 심었어요!</h1><p>${reference()} · ${selectedVerses().length}절 묵상 완료<br>오늘의 작은 실천을 응원해요.</p>${friendsArt('손을 흔들며 축하하는 뮤니, 코, 타스')}<section class="card"><h3>🔥 ${streak()}일 연속학습</h3><p>읽기 ${readVerses(selected,selectedDate).length} / ${chapter().verses.length}절 · ${readVerses(selected,selectedDate).length===chapter().verses.length?'한 장을 모두 읽었어요!':'남은 말씀도 언제든 이어 읽을 수 있어요.'}</p></section><button class="primary wide" data-action="open-share">묵상 공유하기</button><button class="outline-button wide success-continue" data-page="home">홈 화면으로 돌아가기</button></section>`;}
 function openShare({id=selected,date=selectedDate,start=rangeStart,end=rangeEnd}={}) {
@@ -330,7 +367,7 @@ document.querySelector('#share-dialog').addEventListener('close',()=>{if(!docume
 function account() {
   const avatar=AVATARS[profile.avatar];
   const completedDates=[...new Set([...Object.keys(data),...Object.keys(legacy),...Object.keys(readingData)])].filter(date=>validDay(date)&&date<=today&&completedDay(date));
-  content.innerHTML=`<h1>계정</h1><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatar.emoji}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>이 브라우저에 저장되는 프로필</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">큐티말씀</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">하루 완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><p class="settings-note">말씀 목표는 QT와 별도로 집계합니다. 일요일 QT를 끄면 ‘QT만’에서는 쉬는 날로 처리하며, 나머지 조건에서는 말씀 목표를 채워야 합니다. 변경한 목표와 완료 조건은 오늘부터 적용됩니다.</p><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span><i aria-hidden="true">${value.emoji}</i>${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><div class="activity-stats account-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${completedDates.length}일</h2><p>완료한 날</p></section></div><button class="outline-button" data-action="export">전체 기록 백업</button><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
+  content.innerHTML=`<h1>계정</h1><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatar.emoji}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>이 브라우저에 저장되는 프로필</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">큐티말씀</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><p class="settings-note">말씀 목표는 QT와 별도로 집계합니다. 일요일 QT를 끄면 ‘QT만’에서는 쉬는 날로 처리하며, 나머지 조건에서는 말씀 목표를 채워야 합니다. 변경한 목표와 완료 조건은 오늘부터 적용됩니다.</p><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span><i aria-hidden="true">${value.emoji}</i>${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><div class="activity-stats account-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${completedDates.length}일</h2><p>완료한 날</p></section></div><button class="outline-button" data-action="export">전체 기록 백업</button><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
 }
 document.addEventListener('change',e=>{
   const id=e.target.id;
@@ -350,7 +387,7 @@ document.addEventListener('change',e=>{
     catch{toast('목표 설정을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.');}
     return;
   }
-  if(id==='word-chapter'){selected=e.target.value;return;}
+  if(id==='word-chapter'){selected=e.target.value;history.replaceState({quolingo:routeState(),scroll:scrollY},'');lastRoute=routeState();return;}
   if(!['chapter-select','start-verse','end-verse'].includes(id))return;
   if(id==='chapter-select'){
     selected=e.target.value;const last=record().lastRange;
@@ -359,7 +396,7 @@ document.addEventListener('change',e=>{
   }
   if(id==='start-verse'){rangeStart=Number(e.target.value);rangeEnd=Math.max(rangeStart,rangeEnd);}
   if(id==='end-verse')rangeEnd=Number(e.target.value);
-  render('selection');document.getElementById(id).focus();
+  render('selection','replace');document.getElementById(id).focus();
 });
 document.addEventListener('submit',e=>{
   if(e.target.id==='account-form'){
@@ -388,6 +425,8 @@ document.addEventListener('pointerdown',e=>{
 for(const event of ['pointerup','pointercancel','lostpointercapture'])document.addEventListener(event,releaseHeldButton,true);
 window.addEventListener('blur',releaseHeldButton);
 document.addEventListener('click',e=>{
+ const logo=e.target.closest('a.logo,a.mobile-logo');
+ if(logo){e.preventDefault();render('home');window.scrollTo({top:0,behavior:'instant'});return;}
  const b=e.target.closest('button');if(!b||b.disabled)return;
  if(b.dataset.page){render(b.dataset.page);window.scrollTo({top:0,behavior:'instant'});}
  if(b.dataset.chapter)openChapter(b.dataset.chapter,Number(b.dataset.start),Number(b.dataset.end),b.dataset.date||today);
@@ -398,27 +437,30 @@ document.addEventListener('click',e=>{
  if(b.dataset.action==='copy-share')void copyShareText();
  if(b.dataset.action==='mode'){mode=b.dataset.mode==='reading'?'reading':'qt';render('home');}
  if(b.dataset.action==='word-reselect')render('wordSelection');
- if(b.dataset.action==='read-chapter')setChapterRead();
- if(b.dataset.action==='unread-chapter')setChapterRead(b.dataset.readingId||selected,b.dataset.date||selectedDate,false);
+ if(b.dataset.action==='open-reading'&&ACTIVE_CHAPTER_IDS.has(b.dataset.readingId)&&validDay(b.dataset.date)&&b.dataset.date<=today){selected=b.dataset.readingId;selectedDate=b.dataset.date;render('reader');window.scrollTo({top:0,behavior:'instant'});}
+ if(b.dataset.action==='read-chapter')setChapterRead(selected,selectedDate,!readChapters(selectedDate).includes(selected));
  if(b.dataset.action==='activity-date'&&validDay(b.dataset.date)&&b.dataset.date<=today){activityDate=b.dataset.date;render('activity');document.querySelector(`.calendar-day[data-date="${activityDate}"]`).focus({preventScroll:true});}
  if(b.dataset.action==='activity-month'){
    const date=new Date(activityMonth+'-01T12:00:00+09:00');date.setUTCMonth(date.getUTCMonth()+Number(b.dataset.shift));
    const month=dayKey(date).slice(0,7);
    if(month<=today.slice(0,7)){activityMonth=month;activityDate=month===today.slice(0,7)?today:month+'-01';render('activity');document.querySelector(`[data-action="activity-month"][data-shift="${b.dataset.shift}"]`).focus({preventScroll:true});}
  }
- if(b.dataset.action==='next-chapter'&&readingChapters().some(c=>c.id===b.dataset.next)){selected=b.dataset.next;render('reader');window.scrollTo({top:0,behavior:'instant'});}
+ if(['next-chapter','previous-chapter'].includes(b.dataset.action)&&selectionChapters().some(c=>c.id===b.dataset.next)){selected=b.dataset.next;render('reader');window.scrollTo({top:0,behavior:'instant'});}
  if(b.dataset.action==='open-day'){
    if(openingDayTimer!==null)return;
    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)openDay(b.dataset.date);
    else{b.classList.add('is-opening');openingDayTimer=setTimeout(()=>{openingDayTimer=null;if(b.isConnected)openDay(b.dataset.date);},240);}
  }
  if(b.dataset.action==='reselect')render('selection');
- if(b.dataset.action==='previous'){stage--;render('editor');}
+ if(b.dataset.action==='previous'){if(stage>0){stage--;render('editor');}else render('selection');window.scrollTo({top:0,behavior:'instant'});}
  if(b.dataset.action==='next'){
-  if(stage===0)updateRecord({read:selectedVerses()});
+  if(stage===0)updateRecord({read:selectedVerses(),completedSteps:Math.max(DailyProgress.qtSteps(sessionRecord()),1)});
+  else if(!sessionRecord()[fields[stage-1]]?.trim())return;
+  else if(stage<3)updateRecord({completedSteps:Math.max(DailyProgress.qtSteps(sessionRecord()),stage+1)});
   if(stage<3){stage++;render('editor');}
-  else if(fields.every(f=>sessionRecord()[f]?.trim())&&sessionRecord().read?.length){const ok=updateRecord({completed:true});render('success');if(!ok)toast('기록이 메모리에만 있어요. 파일로 백업해 주세요.');}
+  else if(fields.every(f=>sessionRecord()[f]?.trim())&&sessionRecord().read?.length){const ok=updateRecord({completed:true,completedSteps:4});render('success');if(!ok)toast('기록이 메모리에만 있어요. 파일로 백업해 주세요.');}
   else toast('읽은 절과 관찰·해석·적용을 확인해 주세요.');
+  window.scrollTo({top:0,behavior:'instant'});
  }
  if(b.dataset.action==='export'){const blob=new Blob([JSON.stringify({version:4,exportedAt:new Date().toISOString(),profile,chapters:data,reading:readingData,legacyEntries:legacy},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`quolingo-${today}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('전체 기록을 파일로 백업했어요.');}
 });
@@ -433,4 +475,5 @@ if(!validBookId(savedProfile.qtBookId)||!validBookId(savedProfile.readingBookId)
   try { localStorage.setItem(PROFILE_KEY,JSON.stringify(profile)); } catch { /* Keep preferences in memory when storage is unavailable. */ }
 }
 document.querySelector('.sidebar-friend').innerHTML=friendsArt('손을 흔들며 인사하는 뮤니, 코, 타스');
-render();
+const restored=history.state?.quolingo;
+render(restoreRoute(restored)?restored.page:'home','replace');

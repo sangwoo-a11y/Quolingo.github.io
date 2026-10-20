@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {settings,state,streak} = require('../progress.js');
+const {settings,state,streak,qtSteps} = require('../progress.js');
 const tue='2026-10-20', sun='2026-10-18';
 function config(completionRule,skipSundayQt=false){return {dailyGoal:2,completionRule,skipSundayQt};}
 function shift(key,n){const date=new Date(key+'T12:00:00Z');date.setUTCDate(date.getUTCDate()+n);return date.toISOString().slice(0,10);}
@@ -35,4 +35,13 @@ test('streak bridges a Sunday rest without adding it and still breaks on a misse
   assert.equal(streak('2026-10-18',status,shift),2);
   completed.delete('2026-10-17');
   assert.equal(streak('2026-10-20',status,shift),1);
+});
+test('QT progress follows confirmed steps and preserves earlier records',()=>{
+  assert.equal(qtSteps({}),0);
+  assert.equal(qtSteps({read:[1]}),1);
+  assert.equal(qtSteps({read:[1],observation:'관찰'}),2);
+  assert.equal(qtSteps({read:[1],observation:'관찰',interpretation:'해석'}),3);
+  assert.equal(qtSteps({read:[1],observation:'관찰',completedSteps:1}),1); // Drafts are not confirmed steps.
+  assert.equal(qtSteps({completedSteps:3,application:'적용 초안'}),3);
+  assert.equal(qtSteps({completed:true}),4);
 });

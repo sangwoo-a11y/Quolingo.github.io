@@ -34,6 +34,14 @@ const DailyProgress = (() => {
     }
     return count;
   }
-  return { settings, state, streak };
+  function qtSteps(session = {}) {
+    if (session.completed) return 4;
+    if (Number.isInteger(session.completedSteps)) return Math.max(0, Math.min(3, session.completedSteps));
+    // Earlier records did not store explicit step completion.
+    if (!Array.isArray(session.read) || !session.read.length) return 0;
+    if (!String(session.observation || '').trim()) return 1;
+    return String(session.interpretation || '').trim() ? 3 : 2;
+  }
+  return { settings, state, streak, qtSteps };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = DailyProgress;

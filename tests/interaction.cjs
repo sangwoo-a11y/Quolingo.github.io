@@ -29,7 +29,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await home();await today.focus();await p.keyboard.press('Enter');await p.clock.runFor(280);await p.locator('#chapter-select').waitFor();
   // Companions sit at each week's midpoint, with occasional pairs and alternating sides.
   for(const [date,count] of [['2027-02-20',4],['2026-03-20',6],['2026-10-20',5]]){
-   await p.clock.setSystemTime(new Date(date+'T03:00:00Z'));await p.reload();
+   await p.clock.setSystemTime(new Date(date+'T03:00:00Z'));await p.reload();await home();
    assert.equal(await p.locator('.path-week').count(),count);
    for(const width of [320,390,768,1024,1440]){
     await p.setViewportSize({width,height:1000});await p.evaluate(()=>new Promise(requestAnimationFrame));
