@@ -68,9 +68,11 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('#total').textContent(),'2');
   assert.equal(await p.locator('#reading-goal .goal-count').textContent(),'2 / 2장');
   await nav('home');assert.equal(await day('2026-10-20').locator('.completion-check path').getAttribute('stroke-width'),'6');
-  await nav('account');await p.locator('#completion-rule').selectOption('either');
+  await nav('account');
+  assert.equal(await p.locator('label[for=reading-book]').textContent(),'큐티말씀');
+  assert.deepEqual(await p.locator('#completion-rule option').evaluateAll(options=>options.map(o=>o.value)),['both','qt','reading']);
   await p.locator('#daily-goal').fill('3');await p.locator('#daily-goal').dispatchEvent('change');
-  assert.equal(await week('2026-10-20').textContent(),'✓'); // QT is enough for either.
+  assert.equal(await week('2026-10-20').textContent(),'·'); // Both still requires the increased reading goal.
   await p.locator('#completion-rule').selectOption('reading');assert.equal(await week('2026-10-20').textContent(),'·');
   await p.locator('#completion-rule').selectOption('qt');assert.equal(await week('2026-10-20').textContent(),'✓');
   await p.locator('#completion-rule').selectOption('both');assert.equal(await week('2026-10-20').textContent(),'·');
@@ -88,9 +90,23 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.match(await p.locator('#content').textContent(),/누적 5장/);
   assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/3절/);
   await nav('home');
-  const moving=p.locator('.path-friends img'),a=await moving.evaluate(el=>getComputedStyle(el).transform);
-  await p.waitForTimeout(650);assert.notEqual(await moving.evaluate(el=>getComputedStyle(el).transform),a);
-  await p.emulateMedia({reducedMotion:'reduce'});assert.equal(await moving.evaluate(el=>getComputedStyle(el).animationName),'none');
+  assert.equal(await p.locator('.path-friends .friend-character').count(),3);
+  assert.equal(await p.locator('.path-friends .friends-cast').evaluate(el=>getComputedStyle(el).transform),'none');
+  const hands=p.locator('.path-friends .friend-hand');
+  const names=await hands.evaluateAll(elements=>elements.map(el=>getComputedStyle(el).animationName));
+  assert.equal(new Set(names).size,3);
+  const frames=await hands.evaluateAll(elements=>elements.map(el=>{
+   const animation=el.getAnimations()[0],timing=animation.effect.getTiming();
+   animation.pause();animation.currentTime=timing.delay+timing.duration*.32;
+   const first=getComputedStyle(el).transform;
+   animation.currentTime=timing.delay+timing.duration*.4;
+   return [first,getComputedStyle(el).transform];
+  }));
+  for(const [first,second] of frames)assert.notEqual(first,second);
+  const bodies=await p.locator('.path-friends .friend-motion').evaluateAll(elements=>elements.map(el=>getComputedStyle(el).animationName));
+  assert.equal(new Set(bodies).size,3);
+  await p.emulateMedia({reducedMotion:'reduce'});
+  for(const value of await p.locator('.path-friends :is(.friend-motion,.friend-hand)').evaluateAll(elements=>elements.map(el=>getComputedStyle(el).animationName)))assert.equal(value,'none');
   await p.emulateMedia({reducedMotion:'no-preference'});
   await p.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));await p.waitForTimeout(50);
   assert.ok(await p.locator('.day-caption').last().evaluate(el=>innerHeight-el.getBoundingClientRect().bottom)>=150);
@@ -129,7 +145,19 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.evaluate(()=>dailyState('2026-10-25').complete),true);
   assert.equal(await p.evaluate(()=>daySettings('2026-10-25').dailyGoal),1);
   assert.equal(await p.locator('#reading-goal .goal-count').textContent(),'0 / 5장');
+  // A retired profile choice migrates, but yesterday's achieved reading-only day remains achieved.
+  const oldContext=await browser.newContext();const old=await oldContext.newPage();
+  await old.clock.install({time:new Date('2026-10-20T03:00:00Z')});await old.goto(url);
+  await old.evaluate(()=>{
+   localStorage.setItem('quolingo-profile-v1',JSON.stringify({completionRule:'either',dailyGoal:2}));
+   localStorage.setItem('quolingo-reading-v1',JSON.stringify({'2026-10-19':{chapters:['genesis-1'],rules:{dailyGoal:1,completionRule:'either'}}}));
+  });await old.reload();await old.locator('.nav[data-page="account"]').click();
+  assert.equal(await old.locator('#completion-rule').inputValue(),'both');
+  assert.equal(await old.evaluate(()=>JSON.parse(localStorage.getItem('quolingo-profile-v1')).completionRule),'both');
+  assert.equal(await old.evaluate(()=>dailyState('2026-10-19').complete),true);
+  assert.equal(await old.evaluate(()=>JSON.parse(localStorage.getItem('quolingo-reading-v1'))['2026-10-19'].rules.completionRule),'either');
+  await oldContext.close();
   assert.deepEqual(errors,[]);
-  console.log('PASS: 66 books, mode routing, independent/deduplicated chapter records, QT context and legacy migration, all completion rules, daily goal persistence/history, Sunday exemption, backup, movement, mobile layout and bottom spacing.');
+  console.log('PASS: 66 books, mode routing, independent/deduplicated chapter records, QT context and legacy migration, three current completion choices and retired-choice migration, daily goal persistence/history, Sunday exemption, backup, independently animated waving arms and bodies, mobile layout and bottom spacing.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,5 +1,6 @@
 // Shared, DOM-independent daily completion rules. QT verses never count as read chapters.
 const DailyProgress = (() => {
+  // 'either' is only retained to evaluate historical daily snapshots.
   const rules = ['both', 'either', 'qt', 'reading'];
   function settings(value = {}) {
     const goal = Number(value.dailyGoal);

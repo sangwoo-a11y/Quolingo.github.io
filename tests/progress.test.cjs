@@ -10,7 +10,7 @@ test('goals require valid whole chapters and old profiles keep QT completion',()
   for(const dailyGoal of [0,-1,1.5,1190,NaN])assert.equal(settings({dailyGoal}).dailyGoal,1);
   assert.equal(settings({dailyGoal:1189}).dailyGoal,1189);
 });
-test('all four completion conditions keep QT and chapter totals separate',()=>{
+test('current rules and historical either rule keep QT and chapter totals separate',()=>{
   for(const qt of [false,true])for(const count of [0,1,2,3]){
     const read=count>=2;
     assert.equal(state(tue,qt,count,config('both')).complete,qt&&read);

@@ -22,7 +22,7 @@ jobs:
         run: |
           mkdir -p _site/assets
           cp index.html style.css app.js chapters.js old-testament.js new-testament.js progress.js THIRD_PARTY_NOTICES.md _site/
-          cp assets/friends.png _site/assets/
+          cp assets/*.png _site/assets/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
