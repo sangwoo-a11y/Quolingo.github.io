@@ -1,3 +1,8 @@
+const accountStore = new QuolingoCloud.Store((()=>{
+  try{return window.localStorage;}
+  catch{return {getItem:()=>null,setItem:()=>{throw new Error('Browser storage unavailable');}};}
+})());
+let cloudAccount=null;
 const KEY = 'quolingo-chapters-v2';
 const LEGACY_KEY = 'quolingo-journal-v1';
 const PROFILE_KEY = 'quolingo-profile-v1';
@@ -13,15 +18,19 @@ let shareSnapshot=null,shareBusy=false;
 let data = {}, legacy = {}, page = 'home', stage = 0, selected = CHAPTERS[0].id;
 let rangeStart = 1, rangeEnd = CHAPTERS[0].verses.length;
 function load(key) {
-  try { const value = JSON.parse(localStorage.getItem(key) || '{}'); return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
+  try { const value = JSON.parse(accountStore.getItem(key) || '{}'); return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
   catch { return {}; }
 }
 data = load(KEY); legacy = load(LEGACY_KEY); readingData = load(READING_KEY);
 const savedProfile=load(PROFILE_KEY);
 const validBookId=id=>BOOKS.some(book=>book.id===id);
-const previousBookId=validBookId(savedProfile.bookId)?savedProfile.bookId:'joshua';
-let profile={name:typeof savedProfile.name==='string'?savedProfile.name.slice(0,20):'',avatar:Object.hasOwn(AVATARS,savedProfile.avatar)?savedProfile.avatar:'ko',qtBookId:validBookId(savedProfile.qtBookId)?savedProfile.qtBookId:previousBookId,readingBookId:validBookId(savedProfile.readingBookId)?savedProfile.readingBookId:previousBookId,...DailyProgress.settings({...savedProfile,completionRule:savedProfile.completionRule==='either'?'both':savedProfile.completionRule})};
+function normalizedProfile(value={}) {
+  const previousBookId=validBookId(value.bookId)?value.bookId:'joshua';
+  return {name:typeof value.name==='string'?value.name.slice(0,20):'',avatar:Object.hasOwn(AVATARS,value.avatar)?value.avatar:'ko',qtBookId:validBookId(value.qtBookId)?value.qtBookId:previousBookId,readingBookId:validBookId(value.readingBookId)?value.readingBookId:previousBookId,...DailyProgress.settings({...value,completionRule:value.completionRule==='either'?'both':value.completionRule})};
+}
+let profile=normalizedProfile(savedProfile);
 // Keep existing chapter journals as full-chapter sessions; retain original fields.
+function migrateQTEntries() {
 for (const day of Object.values(data)) {
   for (const c of ALL_CHAPTERS) {
     const entry = day?.[c.id];
@@ -31,6 +40,8 @@ for (const day of Object.values(data)) {
       read:Array.isArray(entry.read) ? [...entry.read] : [], completed:Boolean(entry.completed)}};
   }
 }
+}
+migrateQTEntries();
 function dayKey(date = new Date()) { return new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(date); }
 function shiftDay(key, n) { const date = new Date(key + 'T12:00:00+09:00'); date.setUTCDate(date.getUTCDate() + n); return dayKey(date); }
 let today = dayKey();
@@ -68,7 +79,7 @@ function updateRecord(changes) {
   const read = changes.read ? [...new Set([...readVerses(selected,selectedDate), ...changes.read])].sort((a,b)=>a-b) : readVerses(selected,selectedDate);
   data[selectedDate] = {...data[selectedDate], [selected]: {...entry, read, lastRange:{start:rangeStart,end:rangeEnd},
     sessions:{...entry.sessions, [rangeKey()]:session}}};
-  try { localStorage.setItem(KEY, JSON.stringify(data)); return true; }
+  try { accountStore.setItem(KEY, JSON.stringify(data)); return true; }
   catch { toast('브라우저 저장 실패 · 나의 묵상에서 파일로 백업해 주세요.'); return false; }
 }
 function escapeHTML(value) { return String(value ?? '').replace(/[&<>"']/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x])); }
@@ -84,7 +95,7 @@ function dailyState(date) { return DailyProgress.state(date,qtCompletedDay(date)
 function completedDay(date) { return dailyState(date).complete; }
 function streak() { return DailyProgress.streak(today,dailyState,shiftDay); }
 function persistReading() {
-  try { localStorage.setItem(READING_KEY,JSON.stringify(readingData)); return true; }
+  try { accountStore.setItem(READING_KEY,JSON.stringify(readingData)); return true; }
   catch { toast('말씀 읽기 기록을 저장할 수 없어요. 전체 기록을 파일로 백업해 주세요.'); return false; }
 }
 function rememberDailyRules(date) {
@@ -99,7 +110,7 @@ function setChapterRead(id=selected,date=selectedDate,read=true) {
   const chapters=readChapters(date);
   const next={...readingData,[date]:{...readingData[date],rules:readingData[date]?.rules||daySettings(date),
     chapters:read?[...new Set([...chapters,id])]:chapters.filter(item=>item!==id)}};
-  try { localStorage.setItem(READING_KEY,JSON.stringify(next)); }
+  try { accountStore.setItem(READING_KEY,JSON.stringify(next)); }
   catch { toast('읽기 기록을 저장할 수 없어요. 다시 시도해 주세요.');return; }
   readingData=next;render(page);
   if(page==='reader')document.querySelector('[data-action="read-chapter"]').focus({preventScroll:true});
@@ -153,10 +164,11 @@ function updateStats() {
 let lastRoute=null;
 const routeScrolls=new Map();
 function routeState(target=page) {
-  return {page:target,mode,stage,selected,selectedDate,rangeStart,rangeEnd,activityMonth,activityDate};
+  return {page:target,mode,stage,selected,selectedDate,rangeStart,rangeEnd,activityMonth,activityDate,owner:accountStore.owner};
 }
 function routeKey(route) { return JSON.stringify(route); }
 function restoreRoute(route) {
+  if((route?.owner||null)!==accountStore.owner)return false;
   if(!route||!['home','selection','wordSelection','reader','editor','journal','activity','success','account'].includes(route.page)||!CHAPTER_BY_ID.has(route.selected)||!validDay(route.selectedDate)||route.selectedDate>today)return false;
   if(!Number.isInteger(route.stage)||route.stage<0||route.stage>3)return false;
   if(['editor','selection','success'].includes(route.page)&&!validRange(CHAPTER_BY_ID.get(route.selected),route.rangeStart,route.rangeEnd))return false;
@@ -366,9 +378,54 @@ function clearShare() {
 function closeShare() {document.querySelector('#share-dialog').close();clearShare();}
 document.querySelector('#share-dialog').addEventListener('cancel',clearShare);
 document.querySelector('#share-dialog').addEventListener('close',()=>{if(!document.querySelector('#share-dialog').open)clearShare();});
+function conflictLabel(path) {
+  const labels={profile:'계정',chapters:'QT',reading:'말씀 읽기',legacyEntries:'이전 묵상',observation:'관찰',interpretation:'해석',application:'적용',completed:'완료',completedSteps:'QT 진행',name:'이름',avatar:'캐릭터',qtBookId:'큐티말씀',readingBookId:'말씀',dailyGoal:'목표',completionRule:'완료 조건',skipSundayQt:'일요일 QT',rules:'완료 기준',sessions:'',lastRange:'말씀 범위',start:'시작 절',end:'끝 절'};
+  return path.map(key=>labels[key]??(CHAPTER_BY_ID.has(key)?`${CHAPTER_BY_ID.get(key).book} ${CHAPTER_BY_ID.get(key).chapter}장`:key)).filter(Boolean).join(' · ');
+}
+function cloudAccountHTML() {
+  const a=cloudAccount;
+  if(!a?.client)return '<h2>로그인</h2><p>구글 계정으로 기록을 저장하고 다른 기기에서 이어 볼 수 있어요.</p><button type="button" class="outline-button wide" disabled>구글로 로그인</button><p class="cloud-note">로그인은 연결 설정 후 이용할 수 있어요. 현재 기록은 이 기기에 저장됩니다.</p>';
+  const messages={guest:'현재 기록은 이 기기에 저장됩니다.',loading:'계정 기록을 불러오는 중이에요.',syncing:'계정에 저장하는 중이에요.',pending:'이 기기에 저장했어요. 동기화를 기다리고 있어요.',synced:'계정에 저장했어요.',error:'기기에 저장된 기록을 유지하고 있어요. 연결을 확인한 후 다시 동기화해 주세요.','auth-error':'로그인 요청을 완료하지 못했어요. 다시 시도해 주세요.',conflict:'같은 기록이 서로 다르게 수정됐어요. 아래 내용을 비교하고 저장할 내용을 선택해 주세요.'};
+  if(!a.user)return `<h2>로그인</h2><p>구글 계정으로 기록을 저장하고 다른 기기에서 이어 볼 수 있어요.</p><button type="button" class="primary wide" data-action="cloud-login">구글로 로그인</button><p class="cloud-note" role="status">${messages[a.status]||messages.guest}</p>`;
+  const conflict=a.conflicts.length?`<details class="sync-conflicts" open><summary>다르게 수정된 항목 ${a.conflicts.length}개</summary>${a.conflicts.map(c=>`<section><h3>${escapeHTML(conflictLabel(c.path))}</h3><label>이 기기${a.importing?'의 기존 기록':''}<textarea readonly>${escapeHTML(typeof c.local==='string'?c.local:JSON.stringify(c.local)??'내용 없음')}</textarea></label><label>${a.importing?'계정':'다른 기기'}<textarea readonly>${escapeHTML(typeof c.remote==='string'?c.remote:JSON.stringify(c.remote)??'내용 없음')}</textarea></label></section>`).join('')}<div class="sync-actions"><button type="button" class="outline-button" data-action="cloud-local">이 기기 내용 사용</button><button type="button" class="outline-button" data-action="cloud-remote">${a.importing?'계정':'다른 기기'} 내용 사용</button></div></details>`:'';
+  return `<h2>로그인한 계정</h2><p class="cloud-identity">${escapeHTML(a.user.email||'구글 계정')}</p><p class="cloud-status" role="status">${messages[a.status]||messages.pending}</p>${conflict}<div class="sync-actions"><button type="button" class="outline-button" data-action="cloud-sync" ${['syncing','loading','conflict'].includes(a.status)?'disabled':''}>지금 동기화</button><button type="button" class="text-button" data-action="cloud-logout">로그아웃</button></div>${accountStore.hasGuest()?'<div class="guest-import"><p>이 기기에 로그인 전 기록이 있어요.</p><button type="button" class="outline-button wide" data-action="cloud-import" '+(['syncing','loading','conflict'].includes(a.status)?'disabled':'')+'>기존 기록을 계정으로 가져오기</button><p class="cloud-note">가져온 뒤에도 로그인 전 기록은 이 기기에 남습니다.</p></div>':''}`;
+}
+function updateCloudAccountUI() {
+  const section=document.querySelector('#cloud-account');if(section)section.innerHTML=cloudAccountHTML();
+}
+function loadAccountRecords() {
+  data=load(KEY);legacy=load(LEGACY_KEY);readingData=load(READING_KEY);profile=normalizedProfile(load(PROFILE_KEY));migrateQTEntries();
+}
+async function startCloudAccount() {
+  const config=QuolingoCloud.config(window.QUOLINGO_SUPABASE);
+  const client=config&&window.supabase?window.supabase.createClient(config.url,config.key,{auth:{flowType:'pkce',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
+  let first=true;
+  cloudAccount=new QuolingoCloud.Account({client,store:accountStore,
+    onScope:()=>{
+      if(document.querySelector('#share-dialog').open)closeShare();
+      loadAccountRecords();lastRoute=null;
+      const restored=first?history.state?.quolingo:null;first=false;
+      const target=restoreRoute(restored)?restored.page:'home';
+      if(target==='home'){selected=qtChapters()[0].id;selectedDate=today;stage=0;rangeStart=1;rangeEnd=chapter().verses.length;}
+      render(target,'replace');document.body.classList.remove('cloud-booting');document.querySelector('#cloud-boot').hidden=true;
+    },
+    onData:()=>{
+      const focused=document.activeElement?.id,position=focused==='reflection'?[document.activeElement.selectionStart,document.activeElement.selectionEnd]:null,top=scrollY;
+      loadAccountRecords();render(page,'replace');
+      const input=focused&&document.getElementById(focused);if(input){input.focus({preventScroll:true});if(position)input.setSelectionRange(...position);}
+      window.scrollTo({top,behavior:'instant'});
+    },onStatus:updateCloudAccountUI});
+  if(client){document.body.classList.add('cloud-booting');document.querySelector('#cloud-boot').hidden=false;}
+  await cloudAccount.init();
+  if(client){
+    window.addEventListener('online',()=>{void cloudAccount.sync();});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)void cloudAccount.sync();});
+    setInterval(()=>{if(!document.hidden&&cloudAccount.status!=='conflict')void cloudAccount.sync();},30000);
+  }
+}
 function account() {
   const avatar=AVATARS[profile.avatar];
-  content.innerHTML=`<h1>계정</h1><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatar.emoji}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>이 브라우저에 저장되는 프로필</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">큐티말씀</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><p class="settings-note">말씀 목표는 QT와 별도로 집계합니다. 일요일 QT를 끄면 ‘QT만’에서는 쉬는 날로 처리하며, 나머지 조건에서는 말씀 목표를 채워야 합니다. 변경한 목표와 완료 조건은 오늘부터 적용됩니다.</p><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span><i aria-hidden="true">${value.emoji}</i>${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><button class="outline-button" data-action="export">전체 기록 백업</button><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
+  content.innerHTML=`<h1>계정</h1><section id="cloud-account" class="card cloud-account" aria-label="로그인과 동기화">${cloudAccountHTML()}</section><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatar.emoji}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>${cloudAccount?.user?'계정에 저장되는 프로필':'이 브라우저에 저장되는 프로필'}</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">큐티말씀</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><p class="settings-note">말씀 목표는 QT와 별도로 집계합니다. 일요일 QT를 끄면 ‘QT만’에서는 쉬는 날로 처리하며, 나머지 조건에서는 말씀 목표를 채워야 합니다. 변경한 목표와 완료 조건은 오늘부터 적용됩니다.</p><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span><i aria-hidden="true">${value.emoji}</i>${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><button class="outline-button" data-action="export">전체 기록 백업</button><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
 }
 document.addEventListener('change',e=>{
   const id=e.target.id;
@@ -376,7 +433,7 @@ document.addEventListener('change',e=>{
     const book=BOOKS.find(b=>b.id===e.target.value);if(!book)return;
     const field=id==='qt-book'?'qtBookId':'readingBookId',label=id==='qt-book'?'큐티말씀':'말씀';
     const nextProfile={...profile,[field]:book.id};
-    try{localStorage.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;}
+    try{accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;}
     catch{e.target.value=profile[field];toast(`${label}을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.`);}
     return;
   }
@@ -384,7 +441,7 @@ document.addEventListener('change',e=>{
     const input=document.querySelector('#daily-goal');
     if(!input.checkValidity()){input.reportValidity();return;}
     const nextProfile={...profile,...DailyProgress.settings({dailyGoal:Number(input.value),completionRule:document.querySelector('#completion-rule').value,skipSundayQt:document.querySelector('#skip-sunday-qt').checked})};
-    try{localStorage.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;saveTodayRules();updateStats();}
+    try{accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;saveTodayRules();updateStats();}
     catch{toast('목표 설정을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.');}
     return;
   }
@@ -404,7 +461,7 @@ document.addEventListener('submit',e=>{
     e.preventDefault();const values=new FormData(e.target),name=String(values.get('name')||'').trim(),avatar=String(values.get('avatar')||''),qtBookId=String(values.get('qtBook')||''),readingBookId=String(values.get('readingBook')||'');
     if(!name||name.length>20||!Object.hasOwn(AVATARS,avatar)||!validBookId(qtBookId)||!validBookId(readingBookId))return;
     const nextProfile={...profile,name,avatar,qtBookId,readingBookId,...DailyProgress.settings({dailyGoal:Number(values.get('dailyGoal')),completionRule:values.get('completionRule'),skipSundayQt:values.get('skipSundayQt')==='on'})};
-    try{localStorage.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;saveTodayRules();render('account');toast('프로필을 저장했어요.');}
+    try{accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;saveTodayRules();render('account');toast('프로필을 저장했어요.');}
     catch{toast('프로필을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.');}
     return;
   }
@@ -429,6 +486,12 @@ document.addEventListener('click',e=>{
  const logo=e.target.closest('a.logo,a.mobile-logo');
  if(logo){e.preventDefault();render('home');window.scrollTo({top:0,behavior:'instant'});return;}
  const b=e.target.closest('button');if(!b||b.disabled)return;
+ if(b.dataset.action==='cloud-login')void cloudAccount.login(location.origin+location.pathname);
+ if(b.dataset.action==='cloud-logout')void cloudAccount.logout();
+ if(b.dataset.action==='cloud-sync')void cloudAccount.sync();
+ if(b.dataset.action==='cloud-import')void cloudAccount.importGuest();
+ if(b.dataset.action==='cloud-local')void cloudAccount.resolve('local');
+ if(b.dataset.action==='cloud-remote')void cloudAccount.resolve('remote');
  if(b.dataset.page){render(b.dataset.page);window.scrollTo({top:0,behavior:'instant'});}
  if(b.dataset.chapter)openChapter(b.dataset.chapter,Number(b.dataset.start),Number(b.dataset.end),b.dataset.date||today);
  if(b.dataset.action==='open-share')openShare();
@@ -469,12 +532,11 @@ function refreshDay(){if(today!==dayKey()){rememberDailyRules(today);today=dayKe
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDay();});setInterval(refreshDay,30000);
 if(savedProfile.completionRule==='either') {
   // Remove the retired choice from the current profile, keeping past daily rules intact.
-  try { localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));saveTodayRules(); }
+  try { accountStore.setItem(PROFILE_KEY,JSON.stringify(profile));saveTodayRules(); }
   catch { toast('설정을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.'); }
 }
 if(!validBookId(savedProfile.qtBookId)||!validBookId(savedProfile.readingBookId)){
-  try { localStorage.setItem(PROFILE_KEY,JSON.stringify(profile)); } catch { /* Keep preferences in memory when storage is unavailable. */ }
+  try { accountStore.setItem(PROFILE_KEY,JSON.stringify(profile)); } catch { /* Keep preferences in memory when storage is unavailable. */ }
 }
 document.querySelector('.sidebar-friend').innerHTML=friendsArt('손을 흔들며 인사하는 뮤니, 코, 타스');
-const restored=history.state?.quolingo;
-render(restoreRoute(restored)?restored.page:'home','replace');
+void startCloudAccount();

@@ -50,3 +50,11 @@ The Old Testament (39 books, 929 chapters, 23,145 numbered verses) and New Testa
 Original spelling, verse numbering, combined-verse repetitions and `(없음)` entries are retained as supplied by the source. The dataset's verification notes do not imply official endorsement or a guarantee of textual identity with an official edition. Quolingo stores the content locally for static hosting and does not modify the wording of the selected verses.
 
 For compatibility, active Joshua chapters continue to use the original scrollmapper extraction described above; the previous Psalm excerpts keep their `psalm-N` identities for old journals, while the complete Psalms book uses `psalms-N`. No saved journal IDs or text fields are rewritten. The active Bible contains 66 books, 1,189 chapters and 31,102 numbered verses.
+
+## Supabase JavaScript SDK
+
+- Version: `@supabase/supabase-js` 2.118.0 (bundled UMD)
+- Source: https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js
+- License: MIT, included in `vendor/SUPABASE-LICENSE`
+- File: `vendor/supabase-2.118.0.js`
+- SHA-256: `ee3be8de192b97cb1d73d1e95d6b82bb1f6b658c0f97c4ef757fc331996ed3d3`
