@@ -8,7 +8,7 @@ const AVATARS = {muni:{emoji:'🦊',name:'뮤니'},ko:{emoji:'🐥',name:'코'},
 const fields = ['observation', 'interpretation', 'application'];
 const parts = ['관찰', '해석', '적용'];
 const content = document.querySelector('#content');
-let readingData = {}, mode = 'qt', openingDayTimer = null;
+let readingData = {}, mode = 'qt', openingDayTimer = null, heldButton = null;
 let data = {}, legacy = {}, page = 'home', stage = 0, selected = CHAPTERS[0].id;
 let rangeStart = 1, rangeEnd = CHAPTERS[0].verses.length;
 function load(key) {
@@ -141,7 +141,7 @@ function updateStats() {
   document.querySelector('#reading-goal').innerHTML=`<div class="card-heading"><h3>오늘의 말씀 목표</h3><span>📖</span></div><p class="goal-count"><strong>${read}</strong> / ${goal}장</p><p class="goal-label">목표 ${goal}장 · 오늘 ${read}장 읽음</p><progress max="${goal}" value="${Math.min(read,goal)}" aria-label="오늘 말씀 읽기 ${read}장, 목표 ${goal}장"></progress>`;
 }
 function render(target=page) {
-  clearTimeout(openingDayTimer);openingDayTimer=null;
+  releaseHeldButton();clearTimeout(openingDayTimer);openingDayTimer=null;
   page=target; document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===page || ['editor','selection','wordSelection','reader'].includes(page)&&b.dataset.page==='home'));
   ({home,selection,wordSelection,reader,editor,journal,activity,success,account}[page] || home)();updateStats();
 }
@@ -273,6 +273,17 @@ document.addEventListener('submit',e=>{
   stage=0;render('editor');window.scrollTo({top:0,behavior:'instant'});
 });
 document.addEventListener('input',e=>{if(e.target.id!=='reflection')return;updateRecord({[fields[stage-1]]:e.target.value});document.querySelector('#next').disabled=!e.target.value.trim();});
+function releaseHeldButton() {
+  heldButton?.classList.remove('is-held');heldButton=null;
+}
+document.addEventListener('pointerdown',e=>{
+  if(!e.isPrimary||e.button!==0)return;
+  const button=e.target.closest('.day-node,.primary,.mode-tabs button');
+  if(!button||button.disabled)return;
+  releaseHeldButton();heldButton=button;button.classList.add('is-held');
+},{passive:true});
+for(const event of ['pointerup','pointercancel','lostpointercapture'])document.addEventListener(event,releaseHeldButton,true);
+window.addEventListener('blur',releaseHeldButton);
 document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b||b.disabled)return;
  if(b.dataset.page){render(b.dataset.page);window.scrollTo({top:0,behavior:'instant'});}
