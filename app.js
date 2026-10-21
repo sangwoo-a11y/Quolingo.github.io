@@ -317,7 +317,7 @@ function editor() {
 }
 function journalCard(date,c,r,old=false) {
   const title=old?'이전 말씀 묵상':reference(c,r.start,r.end);
-  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date<=today&&CHAPTERS.some(item=>item.id===c.id)?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">기록 이어 쓰기</button>`:''}<button class="text-button entry-delete" data-action="delete-entry" data-delete-chapter="${old?'':c.id}" data-start="${old?'':r.start}" data-end="${old?'':r.end}" data-date="${date}" data-legacy="${old}">묵종 삭제</button></article>`;
+  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date<=today&&CHAPTERS.some(item=>item.id===c.id)?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">이어쓰기</button>`:''}<button class="text-button entry-delete" data-action="delete-entry" data-delete-chapter="${old?'':c.id}" data-start="${old?'':r.start}" data-end="${old?'':r.end}" data-date="${date}" data-legacy="${old}">묵종 삭제</button></article>`;
 }
 function deleteJournalEntry({id,date,start,end,old=false}) {
   if(!validDay(date))return;
