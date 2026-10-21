@@ -56,6 +56,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('#qt-book').inputValue(),'john');assert.equal(await p.locator('#reading-book').inputValue(),'john');
   await p.locator('#qt-book').selectOption('leviticus');assert.equal(await p.locator('#reading-book').inputValue(),'john');
   await p.locator('#reading-book').selectOption('romans');assert.equal(await p.locator('#qt-book').inputValue(),'leviticus');
+  await p.locator('#account-form [type=submit]').click();
   await p.reload();await account();assert.equal(await p.locator('#qt-book').inputValue(),'leviticus');assert.equal(await p.locator('#reading-book').inputValue(),'romans');assert.equal(await p.locator('#profile-name').inputValue(),'기존 이름');
   await home();assert.match(await p.locator('.unit small').textContent(),/레위기/);await p.locator('[data-mode=reading]').click();assert.match(await p.locator('.unit small').textContent(),/로마서/);
   await p.emulateMedia({reducedMotion:'reduce'});await today.click();await p.locator('#word-chapter').waitFor();

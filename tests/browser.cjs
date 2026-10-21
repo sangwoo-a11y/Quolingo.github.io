@@ -14,6 +14,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   });
   await p.reload();
   const nav=page=>p.locator(`.nav[data-page="${page}"]`).click();
+  const saveProfile=async()=>{if(!(await p.locator('#profile-name').inputValue()).trim())await p.locator('#profile-name').fill('상우');await p.locator('#account-form [type=submit]').click();};
   const day=date=>p.locator(`.day-node[data-date="${date}"]`);
   const week=date=>p.locator(`#week .day[data-date="${date}"] i`);
   const mode=value=>p.locator(`[data-action="mode"][data-mode="${value}"]`).click();
@@ -31,11 +32,11 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('#reading-book optgroup[label="구약"] option').count(),39);
   assert.equal(await p.locator('#reading-book optgroup[label="신약"] option').count(),27);
   assert.equal(await p.locator('#completion-rule').inputValue(),'qt');
-  // Preferences save without requiring a profile name.
+  // Account preferences are applied only after saving the complete profile.
   await p.locator('#reading-book').selectOption('genesis');
   await p.locator('#qt-book').selectOption('matthew');
   await p.locator('#daily-goal').fill('2');await p.locator('#daily-goal').dispatchEvent('change');
-  await p.locator('#completion-rule').selectOption('both');
+  await p.locator('#completion-rule').selectOption('both');await saveProfile();
   await p.reload();await nav('account');
   assert.equal(await p.locator('#reading-book').inputValue(),'genesis');
   assert.equal(await p.locator('#qt-book').inputValue(),'matthew');
@@ -83,14 +84,14 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await nav('account');
   assert.equal(await p.locator('label[for=qt-book]').textContent(),'QT');
   assert.deepEqual(await p.locator('#completion-rule option').evaluateAll(options=>options.map(o=>o.value)),['both','qt','reading']);
-  await p.locator('#daily-goal').fill('3');await p.locator('#daily-goal').dispatchEvent('change');
+  await p.locator('#daily-goal').fill('3');await p.locator('#daily-goal').dispatchEvent('change');await saveProfile();
   assert.equal(await week('2026-10-20').textContent(),'·'); // Both still requires the increased reading goal.
-  await p.locator('#completion-rule').selectOption('reading');assert.equal(await week('2026-10-20').textContent(),'·');
-  await p.locator('#completion-rule').selectOption('qt');assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
-  await p.locator('#completion-rule').selectOption('both');assert.equal(await week('2026-10-20').textContent(),'·');
+  await p.locator('#completion-rule').selectOption('reading');await saveProfile();assert.equal(await week('2026-10-20').textContent(),'·');
+  await p.locator('#completion-rule').selectOption('qt');await saveProfile();assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
+  await p.locator('#completion-rule').selectOption('both');await saveProfile();assert.equal(await week('2026-10-20').textContent(),'·');
   await readDate('2026-10-20','genesis-3');assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
   // Completed records can come from different books; switching books doesn't reset totals.
-  await nav('account');await p.locator('#reading-book').selectOption('revelation');
+  await nav('account');await p.locator('#reading-book').selectOption('revelation');await saveProfile();
   await readDate('2026-10-20','revelation-22');
   assert.equal(await p.locator('.verse-row').count(),21);
   assert.match(await p.locator('.verse-row').last().textContent(),/주 예수의 은혜가/);
@@ -140,19 +141,19 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await nav('home');await p.screenshot({path:'/tmp/quolingo-final-desktop.png'});
   // Sunday: QT-only is a rest, reading stays enabled, no artificial completion check.
   await p.clock.setSystemTime(new Date('2026-10-25T03:00:00Z'));await p.reload();await nav('account');
-  await p.locator('#completion-rule').selectOption('qt');await p.locator('#skip-sunday-qt').check();
+  await p.locator('#completion-rule').selectOption('qt');await p.locator('#skip-sunday-qt').check();await saveProfile();
   await nav('home');await mode('qt');assert.equal(await day('2026-10-25').isDisabled(),true);
   assert.equal(await week('2026-10-25').textContent(),'–');
   await mode('reading');assert.equal(await day('2026-10-25').isDisabled(),false);
   await readDate('2026-10-25','revelation-1');assert.equal(await p.locator('#reading-goal .goal-count').textContent(),'1 / 3장');
   await nav('account');await p.locator('#completion-rule').selectOption('both');
-  await p.locator('#daily-goal').fill('1');await p.locator('#daily-goal').dispatchEvent('change');
+  await p.locator('#daily-goal').fill('1');await p.locator('#daily-goal').dispatchEvent('change');await saveProfile();
   assert.equal(await week('2026-10-25').locator('.completion-check').count(),1);
-  await p.locator('#skip-sunday-qt').uncheck();assert.equal(await week('2026-10-25').textContent(),'·');
-  await p.locator('#skip-sunday-qt').check();
+  await p.locator('#skip-sunday-qt').uncheck();await saveProfile();assert.equal(await week('2026-10-25').textContent(),'·');
+  await p.locator('#skip-sunday-qt').check();await saveProfile();
   // Goal changes from Monday onward preserve Sunday's goal and completion.
   await p.clock.setSystemTime(new Date('2026-10-26T03:00:00Z'));await p.reload();await nav('account');
-  await p.locator('#daily-goal').fill('5');await p.locator('#daily-goal').dispatchEvent('change');
+  await p.locator('#daily-goal').fill('5');await p.locator('#daily-goal').dispatchEvent('change');await saveProfile();
   assert.equal(await p.evaluate(()=>dailyState('2026-10-25').complete),true);
   assert.equal(await p.evaluate(()=>daySettings('2026-10-25').dailyGoal),1);
   assert.equal(await p.locator('#reading-goal .goal-count').textContent(),'0 / 5장');

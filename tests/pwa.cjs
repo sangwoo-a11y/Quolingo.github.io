@@ -36,6 +36,16 @@ const server=http.createServer((req,res)=>{
   await p.locator('.nav[data-page=account]').click();
   await p.locator('#profile-name').fill('작성 중인 이름');
   const originalProfile=await p.evaluate(()=>localStorage.getItem('quolingo-profile-v1'));
+  const originalReading=await p.evaluate(()=>localStorage.getItem('quolingo-reading-v1'));
+  const changeSettings=async()=>{
+   await p.locator('#qt-book').selectOption('matthew');await p.locator('#reading-book').selectOption('genesis');
+   await p.locator('#daily-goal').fill('3');await p.locator('#completion-rule').selectOption('both');
+   await p.locator('#skip-sunday-qt').check();await p.locator('input[name=avatar][value=tas]').check();
+  };
+  await changeSettings();
+  assert.equal(await p.evaluate(()=>localStorage.getItem('quolingo-profile-v1')),originalProfile);
+  assert.equal(await p.evaluate(()=>localStorage.getItem('quolingo-reading-v1')),originalReading);
+  assert.equal(await p.evaluate(()=>profile.dailyGoal),1);
   const colors={apricot:'#f7b77f',sunshine:'#f4d778',sand:'#c6b3a2',sky:'#9dc9dc',rose:'#e2a3ad',lavender:'#b8aad6'};
   for(const [id,color] of Object.entries(colors)){
    await p.locator(`input[name=theme][value=${id}]`).check();
@@ -46,13 +56,22 @@ const server=http.createServer((req,res)=>{
   }
   await p.locator('.nav[data-page=home]').click();assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'apricot');
   await p.locator('.nav[data-page=account]').click();assert.equal(await p.locator('input[name=theme][value=apricot]').isChecked(),true);
+  assert.equal(await p.locator('#qt-book').inputValue(),'joshua');assert.equal(await p.locator('#reading-book').inputValue(),'joshua');
+  assert.equal(await p.locator('#daily-goal').inputValue(),'1');assert.equal(await p.locator('#skip-sunday-qt').isChecked(),false);
+  await changeSettings();
   await p.locator('input[name=theme][value=lavender]').check();
   await p.reload();await p.locator('.nav[data-page=account]').click();assert.equal(await p.locator('input[name=theme][value=apricot]').isChecked(),true);
   assert.equal(await p.locator('#profile-name').inputValue(),'');
+  assert.equal(await p.locator('#qt-book').inputValue(),'joshua');assert.equal(await p.locator('#daily-goal').inputValue(),'1');
+  await changeSettings();
   await p.locator('#profile-name').fill('저장한 이름');await p.locator('input[name=theme][value=lavender]').check();
   await p.locator('#account-form [type=submit]').click();
   await p.reload();await p.locator('.nav[data-page=account]').click();assert.equal(await p.locator('input[name=theme][value=lavender]').isChecked(),true);
   assert.equal(await p.locator('#profile-name').inputValue(),'저장한 이름');
+  assert.equal(await p.locator('#qt-book').inputValue(),'matthew');assert.equal(await p.locator('#reading-book').inputValue(),'genesis');
+  assert.equal(await p.locator('#daily-goal').inputValue(),'3');assert.equal(await p.locator('#completion-rule').inputValue(),'both');
+  assert.equal(await p.locator('#skip-sunday-qt').isChecked(),true);assert.equal(await p.locator('input[name=avatar][value=tas]').isChecked(),true);
+  assert.equal(await p.evaluate(()=>daySettings(today).dailyGoal),3);
   await p.locator('.nav[data-page=home]').click();
   const weekly=await p.locator('.path-week .day-node').evaluateAll(nodes=>[...new Set(nodes.map(n=>getComputedStyle(n).getPropertyValue('--week-color').trim()))]);
   assert.ok(weekly.length>=4);assert.equal(weekly[0],colors.lavender);

@@ -491,22 +491,6 @@ document.addEventListener('change',e=>{
     applyTheme(theme);
     return;
   }
-  if(['qt-book','reading-book'].includes(id)){
-    const book=BOOKS.find(b=>b.id===e.target.value);if(!book)return;
-    const field=id==='qt-book'?'qtBookId':'readingBookId',label=id==='qt-book'?'QT':'말씀';
-    const nextProfile={...profile,[field]:book.id};
-    try{accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;}
-    catch{e.target.value=profile[field];toast(`${label}을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.`);}
-    return;
-  }
-  if(['daily-goal','completion-rule','skip-sunday-qt'].includes(id)){
-    const input=document.querySelector('#daily-goal');
-    if(!input.checkValidity()){input.reportValidity();return;}
-    const nextProfile={...profile,...DailyProgress.settings({dailyGoal:Number(input.value),completionRule:document.querySelector('#completion-rule').value,skipSundayQt:document.querySelector('#skip-sunday-qt').checked})};
-    try{accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;saveTodayRules();updateStats();}
-    catch{toast('목표 설정을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.');}
-    return;
-  }
   if(id==='word-chapter'){selected=e.target.value;history.replaceState({quolingo:routeState(),scroll:scrollY},'');lastRoute=routeState();return;}
   if(!['chapter-select','start-verse','end-verse'].includes(id))return;
   if(id==='chapter-select'){
