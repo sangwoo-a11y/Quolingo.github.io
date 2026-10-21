@@ -1,0 +1,79 @@
+// Run under the same project subpath as GitHub Pages. Installation prompts are mocked;
+// Chromium's real manifest, service worker, caches and offline navigation are exercised.
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const root=path.resolve(__dirname,'..'),prefix='/Quolingo.github.io/';
+let cssSuffix='';
+const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.webmanifest':'application/manifest+json'};
+const server=http.createServer((req,res)=>{
+ const pathname=new URL(req.url,'http://localhost').pathname;
+ if(!pathname.startsWith(prefix)){res.writeHead(404).end();return;}
+ const file=path.resolve(root,pathname.slice(prefix.length)||'index.html');
+ if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}
+ fs.readFile(file,(error,body)=>{
+  if(error){res.writeHead(404).end();return;}
+  res.setHeader('Content-Type',types[path.extname(file)]||'text/plain');res.setHeader('Cache-Control','no-store');
+  res.end(path.basename(file)==='style.css'?body.toString()+cssSuffix:body);
+ });
+});
+(async()=>{
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const url=`http://127.0.0.1:${server.address().port}${prefix}`,profileDir=fs.mkdtempSync(path.join(os.tmpdir(),'quolingo-pwa-'));
+ let context;
+ try {
+  context=await chromium.launchPersistentContext(profileDir,{headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox'],viewport:{width:390,height:844},reducedMotion:'reduce'});
+  const p=context.pages()[0],errors=[];p.on('pageerror',e=>errors.push(e.message));
+  await p.goto(url);await p.evaluate(()=>navigator.serviceWorker.ready);await p.waitForFunction(()=>!!navigator.serviceWorker.controller);
+  const cdp=await context.newCDPSession(p),app=await cdp.send('Page.getAppManifest');
+  assert.deepEqual(app.errors,[]);assert.equal(app.url,url+'manifest.webmanifest');
+  const manifest=JSON.parse(app.data);assert.equal(new URL(manifest.scope,app.url).href,url);assert.equal(new URL(manifest.start_url,app.url).href,url);assert.equal(manifest.display,'standalone');
+  assert.deepEqual((await cdp.send('Page.getInstallabilityErrors')).installabilityErrors,[]);
+  for(const icon of manifest.icons){
+   const size=await p.evaluate(async src=>{const image=new Image();image.src=src;await image.decode();return `${image.naturalWidth}x${image.naturalHeight}`;},new URL(icon.src,app.url).href);
+   assert.equal(size,icon.sizes);
+  }
+  await p.locator('.nav[data-page=account]').click();
+  await p.locator('#profile-name').fill('작성 중인 이름');
+  const colors={apricot:'#f7b77f',sunshine:'#f4d778',sand:'#c6b3a2',sky:'#9dc9dc',rose:'#e2a3ad',lavender:'#b8aad6'};
+  for(const [id,color] of Object.entries(colors)){
+   await p.locator(`input[name=theme][value=${id}]`).check();
+   assert.equal(await p.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()),color);
+   assert.equal(await p.locator('#profile-name').inputValue(),'작성 중인 이름');
+   assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('quolingo-profile-v1')).theme),id);
+   assert.equal(await p.locator('meta[name=theme-color]').getAttribute('content'),color);
+  }
+  await p.reload();await p.locator('.nav[data-page=account]').click();assert.equal(await p.locator('input[name=theme][value=lavender]').isChecked(),true);
+  assert.equal(await p.locator('#profile-name').inputValue(),''); // Colors save without submitting the name form.
+  await p.locator('.nav[data-page=home]').click();
+  const weekly=await p.locator('.path-week .day-node').evaluateAll(nodes=>[...new Set(nodes.map(n=>getComputedStyle(n).getPropertyValue('--week-color').trim()))]);
+  assert.ok(weekly.length>=4);assert.equal(weekly[0],colors.lavender);
+  await p.locator('.nav[data-page=account]').click();
+  const offer=async outcome=>p.evaluate(outcome=>{
+   const event=new Event('beforeinstallprompt',{cancelable:true});window.promptCalls=0;
+   event.prompt=async()=>{window.promptCalls++;};event.userChoice=Promise.resolve({outcome});window.dispatchEvent(event);
+  },outcome);
+  await offer('dismissed');assert.equal(await p.locator('[data-action=install-app]').textContent(),'앱 설치');
+  assert.equal(await p.evaluate(()=>window.promptCalls),0);
+  await p.locator('[data-action=install-app]').click();assert.equal(await p.evaluate(()=>window.promptCalls),1);
+  assert.match(await p.locator('.install-status').textContent(),/취소/);
+  await p.locator('[data-action=install-app]').click();assert.equal(await p.locator('.install-help').getAttribute('open'),'');
+  await offer('accepted');await p.locator('[data-action=install-app]').click();assert.match(await p.locator('.install-status').textContent(),/요청/);
+  await p.evaluate(()=>window.dispatchEvent(new Event('appinstalled')));assert.equal(await p.locator('[data-action=install-app]').isVisible(),false);
+  assert.match(await p.locator('.install-status').textContent(),/설치했어요/);
+  // Fetch fresh public assets even when an earlier copy is cached.
+  cssSuffix='\n/* updated-css-from-network */';
+  assert.match(await p.evaluate(()=>fetch('./style.css?v=new-version').then(r=>r.text())),/updated-css-from-network/);
+  await p.goto(url+'?preview=1');await p.evaluate(()=>navigator.serviceWorker.ready);
+  await p.evaluate(()=>fetch('./private-example?token=never-cache'));
+  const keys=await p.evaluate(async()=>{const names=await caches.keys();return (await Promise.all(names.map(async name=>(await (await caches.open(name)).keys()).map(r=>r.url)))).flat();});
+  assert.ok(keys.length>=19);assert.ok(keys.every(key=>!new URL(key).search&&!key.includes('private-example')));
+  await context.setOffline(true);await p.reload({waitUntil:'domcontentloaded'});
+  await p.locator('.nav[data-page=home]').click();await p.locator('.day-node:not([disabled])').first().click();
+  await p.locator('#passage-selection [type=submit]').click();assert.ok(await p.locator('.verse-row').count()>0);
+  assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'lavender');
+  assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await context.setOffline(false);assert.deepEqual(errors,[]);
+  console.log('PASS: real Chrome installability, project-scoped manifest/icons/service worker, all color choices and immediate persistence, distinct weekly colors, explicit install/cancel/fallback/installed states, fresh network assets, public-only caches and offline Bible navigation.');
+ }finally{if(context)await context.close();await new Promise(resolve=>server.close(resolve));fs.rmSync(profileDir,{recursive:true,force:true});}
+})().catch(e=>{console.error(e);process.exitCode=1;server.close();});

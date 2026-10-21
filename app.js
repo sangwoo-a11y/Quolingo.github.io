@@ -10,6 +10,14 @@ const READING_KEY = 'quolingo-reading-v1';
 const CHAPTER_BY_ID = new Map(ALL_CHAPTERS.map(c=>[c.id,c]));
 const ACTIVE_CHAPTER_IDS = new Set(CHAPTERS.map(c=>c.id));
 const AVATARS = {muni:{name:'뮤니',face:'430 0 345 260'},ko:{name:'코',face:'474 397 242 201'},tas:{name:'타스',face:'472 683 244 174'}};
+const THEMES = {
+  apricot:{name:'살구',color:'#f7b77f',shadow:'#b87848'},
+  sunshine:{name:'노랑',color:'#f4d778',shadow:'#b3923f'},
+  sand:{name:'베이지',color:'#c6b3a2',shadow:'#90796c'},
+  sky:{name:'하늘',color:'#9dc9dc',shadow:'#628f9f'},
+  rose:{name:'분홍',color:'#e2a3ad',shadow:'#a26875'},
+  lavender:{name:'보라',color:'#b8aad6',shadow:'#817299'}
+};
 const fields = ['observation', 'interpretation', 'application'];
 const parts = ['관찰', '해석', '적용'];
 const content = document.querySelector('#content');
@@ -26,9 +34,17 @@ const savedProfile=load(PROFILE_KEY);
 const validBookId=id=>BOOKS.some(book=>book.id===id);
 function normalizedProfile(value={}) {
   const previousBookId=validBookId(value.bookId)?value.bookId:'joshua';
-  return {name:typeof value.name==='string'?value.name.slice(0,20):'',avatar:Object.hasOwn(AVATARS,value.avatar)?value.avatar:'ko',qtBookId:validBookId(value.qtBookId)?value.qtBookId:previousBookId,readingBookId:validBookId(value.readingBookId)?value.readingBookId:previousBookId,...DailyProgress.settings({...value,completionRule:value.completionRule==='either'?'both':value.completionRule})};
+  return {name:typeof value.name==='string'?value.name.slice(0,20):'',avatar:Object.hasOwn(AVATARS,value.avatar)?value.avatar:'ko',theme:Object.hasOwn(THEMES,value.theme)?value.theme:'apricot',qtBookId:validBookId(value.qtBookId)?value.qtBookId:previousBookId,readingBookId:validBookId(value.readingBookId)?value.readingBookId:previousBookId,...DailyProgress.settings({...value,completionRule:value.completionRule==='either'?'both':value.completionRule})};
 }
 let profile=normalizedProfile(savedProfile);
+function applyTheme() {
+  const root=document.documentElement,palette=Object.values(THEMES),index=Object.keys(THEMES).indexOf(profile.theme),theme=palette[index];
+  root.dataset.theme=profile.theme;
+  root.style.setProperty('--accent',theme.color);root.style.setProperty('--accent-shadow',theme.shadow);
+  palette.forEach((_,i)=>{const tone=palette[(index+i)%palette.length];root.style.setProperty(`--week-${i}-color`,tone.color);root.style.setProperty(`--week-${i}-shadow`,tone.shadow);});
+  document.querySelector('meta[name="theme-color"]').content=theme.color;
+}
+applyTheme();
 // Keep existing chapter journals as full-chapter sessions; retain original fields.
 function migrateQTEntries() {
 for (const day of Object.values(data)) {
@@ -184,6 +200,7 @@ function restoreRoute(route) {
   return true;
 }
 function render(target=page,historyMode='auto') {
+  applyTheme();
   releaseHeldButton();clearTimeout(openingDayTimer);openingDayTimer=null;
   const route=routeState(target),changed=lastRoute&&routeKey(lastRoute)!==routeKey(route);
   if(historyMode!=='none') {
@@ -417,7 +434,7 @@ function closeShare() {document.querySelector('#share-dialog').close();clearShar
 document.querySelector('#share-dialog').addEventListener('cancel',clearShare);
 document.querySelector('#share-dialog').addEventListener('close',()=>{if(!document.querySelector('#share-dialog').open)clearShare();});
 function conflictLabel(path) {
-  const labels={profile:'계정',chapters:'QT',reading:'말씀 읽기',legacyEntries:'이전 묵상',observation:'관찰',interpretation:'해석',application:'적용',completed:'완료',completedSteps:'QT 진행',name:'이름',avatar:'캐릭터',qtBookId:'QT',readingBookId:'말씀',dailyGoal:'목표',completionRule:'완료 조건',skipSundayQt:'일요일 QT',rules:'완료 기준',sessions:'',lastRange:'말씀 범위',start:'시작 절',end:'끝 절'};
+  const labels={profile:'계정',chapters:'QT',reading:'말씀 읽기',legacyEntries:'이전 묵상',observation:'관찰',interpretation:'해석',application:'적용',completed:'완료',completedSteps:'QT 진행',name:'이름',avatar:'캐릭터',theme:'기본 색',qtBookId:'QT',readingBookId:'말씀',dailyGoal:'목표',completionRule:'완료 조건',skipSundayQt:'일요일 QT',rules:'완료 기준',sessions:'',lastRange:'말씀 범위',start:'시작 절',end:'끝 절'};
   return path.map(key=>labels[key]??(CHAPTER_BY_ID.has(key)?`${CHAPTER_BY_ID.get(key).book} ${CHAPTER_BY_ID.get(key).chapter}장`:key)).filter(Boolean).join(' · ');
 }
 function cloudAccountHTML() {
@@ -431,6 +448,9 @@ function cloudAccountHTML() {
 function updateCloudAccountUI() {
   const section=document.querySelector('#cloud-account');if(section)section.innerHTML=cloudAccountHTML();
 }
+document.addEventListener('quolingo:install-state',()=>{
+  const section=document.querySelector('#install-app');if(section)section.innerHTML=QuolingoInstall.html();
+});
 function loadAccountRecords() {
   data=load(KEY);legacy=load(LEGACY_KEY);readingData=load(READING_KEY);profile=normalizedProfile(load(PROFILE_KEY));migrateQTEntries();
 }
@@ -462,10 +482,17 @@ async function startCloudAccount() {
   }
 }
 function account() {
-  content.innerHTML=`<h1>계정</h1><section id="cloud-account" class="card cloud-account" aria-label="로그인과 동기화">${cloudAccountHTML()}</section><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatarFace(profile.avatar)}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>${cloudAccount?.user?'계정에 저장되는 프로필':'이 브라우저에 저장되는 프로필'}</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">QT</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span>${avatarFace(key)}${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
+  content.innerHTML=`<h1>계정</h1><section id="cloud-account" class="card cloud-account" aria-label="로그인과 동기화">${cloudAccountHTML()}</section><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatarFace(profile.avatar)}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>${cloudAccount?.user?'계정에 저장되는 프로필':'이 브라우저에 저장되는 프로필'}</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">QT</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><fieldset><legend>기본 색</legend><div class="theme-options">${Object.entries(THEMES).map(([key,value])=>`<label class="theme-option"><input type="radio" name="theme" value="${key}" ${profile.theme===key?'checked':''}><span><i style="--swatch:${value.color}" aria-hidden="true"></i>${value.name}</span></label>`).join('')}</div></fieldset><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span>${avatarFace(key)}${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">프로필 저장</button></form><section id="install-app" class="card install-app" aria-label="앱 설치와 바로가기">${QuolingoInstall.html()}</section><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
 }
 document.addEventListener('change',e=>{
   const id=e.target.id;
+  if(e.target.name==='theme') {
+    const theme=e.target.value;if(!Object.hasOwn(THEMES,theme))return;
+    const nextProfile={...profile,theme};
+    try {accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;applyTheme();}
+    catch {document.querySelector(`input[name="theme"][value="${profile.theme}"]`).checked=true;toast('색상을 저장할 수 없어요. 다시 시도해 주세요.');}
+    return;
+  }
   if(['qt-book','reading-book'].includes(id)){
     const book=BOOKS.find(b=>b.id===e.target.value);if(!book)return;
     const field=id==='qt-book'?'qtBookId':'readingBookId',label=id==='qt-book'?'QT':'말씀';
@@ -527,6 +554,7 @@ document.addEventListener('click',e=>{
  if(b.dataset.action==='cloud-logout')void cloudAccount.logout();
  if(b.dataset.action==='cloud-local')void cloudAccount.resolve('local');
  if(b.dataset.action==='cloud-remote')void cloudAccount.resolve('remote');
+ if(b.dataset.action==='install-app')void QuolingoInstall.request();
  if(b.dataset.page){render(b.dataset.page);window.scrollTo({top:0,behavior:'instant'});}
  if(b.dataset.chapter)openChapter(b.dataset.chapter,Number(b.dataset.start),Number(b.dataset.end),b.dataset.date||today);
  if(b.dataset.action==='open-share')openShare();

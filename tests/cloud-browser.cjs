@@ -6,7 +6,7 @@ const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbb
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
  try{
-  const p=await browser.newPage({viewport:{width:390,height:844},reducedMotion:'reduce'}),errors=[];
+  const p=await browser.newPage({viewport:{width:390,height:844},reducedMotion:'reduce',serviceWorkers:'block'}),errors=[];
   p.on('pageerror',error=>errors.push(error.message));
   await p.clock.install({time:new Date('2026-10-20T03:00:00Z')});
   await p.route('**/supabase-config.js*',route=>route.fulfill({contentType:'text/javascript',body:"window.QUOLINGO_SUPABASE={url:'https://example.supabase.co',publishableKey:'sb_publishable_test'};"}));
@@ -35,6 +35,8 @@ const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbb
   await nav('account');assert.equal(await p.locator('#profile-name').inputValue(),'계정 프로필');
   assert.equal(await p.locator('[data-action=cloud-import],[data-action=cloud-sync],[data-action=export]').count(),0);
   assert.equal(await p.locator('label[for=qt-book]').textContent(),'QT');
+  await p.locator('input[name=theme][value=sky]').check();await p.clock.runFor(1000);await p.waitForFunction(()=>cloudAccount.status==='synced');
+  assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.theme,A),'sky');
   await nav('journal');
   // An account edit is saved in its own cache and uploaded automatically.
   await p.locator('[data-chapter="joshua-1"]').click();await p.locator('#next').click();
@@ -49,11 +51,13 @@ const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbb
   assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.chapters['2026-10-20']['joshua-1'].sessions['1-1'].observation,A),'LOCAL_NOTE');
   await p.screenshot({path:'/tmp/quolingo-cloud-account-mobile.png',fullPage:true});
   await p.locator('[data-action=cloud-logout]').click();await p.waitForFunction(()=>accountStore.owner===null);
+  assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'apricot');
   await nav('journal');assert.match(await p.locator('#content').textContent(),/GUEST_NOTE/);assert.doesNotMatch(await p.locator('#content').textContent(),/LOCAL_NOTE/);
   await p.evaluate(id=>{const rows=JSON.parse(localStorage.getItem('mock-database'));rows[id]={revision:1,payload:{profile:{name:'B 프로필',qtBookId:'matthew'},chapters:{'2026-10-20':{'matthew-1':{read:[1],sessions:{'1-1':{start:1,end:1,read:[1],observation:'B_PRIVATE_NOTE',interpretation:'B meaning',application:'B action',completed:true}}}}}}};localStorage.setItem('mock-database',JSON.stringify(rows));},B);
   await signed(B);await nav('journal');assert.doesNotMatch(await p.locator('#content').textContent(),/LOCAL_NOTE|GUEST_NOTE/);assert.match(await p.locator('#content').textContent(),/B_PRIVATE_NOTE/);
   await nav('account');await p.locator('[data-action=cloud-logout]').click();await p.waitForFunction(()=>accountStore.owner===null);
   await signed(A);await nav('journal');assert.match(await p.locator('#content').textContent(),/LOCAL_NOTE/);
+  assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'sky');
   await p.reload();await nav('journal');assert.match(await p.locator('#content').textContent(),/LOCAL_NOTE/);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
   console.log('PASS: Google OAuth options, hidden manual controls and automatic sync, per-account records and profile, automatic upload, conflict comparison/resolution, logout isolation, second account, reload and mobile UI without external auth requests.');

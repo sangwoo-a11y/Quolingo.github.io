@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "Quolingo",
+  "short_name": "Quolingo",
+  "description": "코, 뮤니, 타스와 함께하는 말씀 읽기와 QT 기록",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#242025",
+  "theme_color": "#f7b77f",
+  "icons": [
+    {"src": "assets/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "assets/app-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
