@@ -107,8 +107,3 @@
 
 /* Shared themed surfaces and titles throughout QT, journals and records. */
 .card,.entry,.profile-summary{background:var(--panel)}
-
-/* Profile choices show the complete character, including its separate right arm. */
-.avatar-option .avatar-character{width:112px;height:108px;max-width:100%;margin:0;transform:none;overflow:visible}
-.avatar-character .friend-motion,.avatar-character .friend-hand{animation:none;transform:none}
-@media(max-width:580px){.avatar-option .avatar-character{width:90px;height:94px}}
