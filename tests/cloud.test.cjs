@@ -69,6 +69,14 @@ test('a new device downloads cloud records without importing guest records',asyn
  assert.equal(a.status,'synced');assert.equal(store.read().chapters.day.note,'private');assert.equal(store.read().chapters.guest,undefined);
  await a.logout();assert.equal(store.owner,null);assert.equal(store.read().chapters.guest.note,'guest');assert.equal(store.read().chapters.day,undefined);
 });
+test('concurrent earned-day criteria keep both devices achievements',()=>{
+ const base=Q.empty();base.reading.day={completedRules:[{dailyGoal:1,completionRule:'qt',skipSundayQt:false}]};
+ const local=structuredClone(base),remote=structuredClone(base);
+ local.reading.day.completedRules.push({dailyGoal:2,completionRule:'reading',skipSundayQt:false});
+ remote.reading.day.completedRules.push({dailyGoal:3,completionRule:'both',skipSundayQt:false});
+ const result=Q.merge(base,local,remote);
+ assert.equal(result.conflicts.length,0);assert.equal(result.value.reading.day.completedRules.length,3);
+});
 test('offline pending changes survive a reload and merge with edits from a second device',async()=>{
  const memory=new Memory(),store=new Q.Store(memory),client=remoteClient(),a=account(client,store);
  await a.init();store.setItem(Q.FIELDS.chapters,JSON.stringify({local:{note:'L'}}));clearTimeout(a.timer);

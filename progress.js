@@ -10,7 +10,7 @@ const DailyProgress = (() => {
       skipSundayQt: value.skipSundayQt === true
     };
   }
-  function state(date, qtDone, chapterCount, value) {
+  function state(date, qtDone, chapterCount, value, completedRules = []) {
     const config = settings(value);
     const qtOff = config.skipSundayQt && new Date(date + 'T12:00:00+09:00').getUTCDay() === 0;
     const readingDone = chapterCount >= config.dailyGoal;
@@ -21,7 +21,8 @@ const DailyProgress = (() => {
       qt: qtDone,
       reading: readingDone
     })[config.completionRule];
-    return { complete: Boolean(complete), rest, qtOff, readingDone };
+    const earned = Array.isArray(completedRules) && completedRules.some(rule => rule && typeof rule === 'object' && !Array.isArray(rule) && state(date, qtDone, chapterCount, rule).complete);
+    return { complete: Boolean(complete || earned), rest, qtOff, readingDone };
   }
   function streak(today, status, shiftDay) {
     // Count today's completion immediately, including the first-ever completed day.

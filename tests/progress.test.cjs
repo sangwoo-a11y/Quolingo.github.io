@@ -57,3 +57,11 @@ test('QT progress follows confirmed steps and preserves earlier records',()=>{
   assert.equal(qtSteps({completedSteps:3,application:'적용 초안'}),3);
   assert.equal(qtSteps({completed:true}),4);
 });
+test('earned completion criteria survive stricter settings but still require their recorded work',()=>{
+  const earned=[config('qt')];
+  assert.equal(state(tue,true,0,config('both'),earned).complete,true);
+  assert.equal(state(tue,false,0,config('both'),earned).complete,false);
+  assert.equal(state(tue,false,1,{dailyGoal:5,completionRule:'reading'},[{dailyGoal:1,completionRule:'reading'}]).complete,true);
+  assert.equal(state(tue,false,0,{dailyGoal:5,completionRule:'reading'},[{dailyGoal:1,completionRule:'reading'}]).complete,false);
+  assert.equal(state(tue,false,0,config('qt'),[null,[],false]).complete,false);
+});

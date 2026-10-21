@@ -85,10 +85,10 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('label[for=qt-book]').textContent(),'QT');
   assert.deepEqual(await p.locator('#completion-rule option').evaluateAll(options=>options.map(o=>o.value)),['both','qt','reading']);
   await p.locator('#daily-goal').fill('3');await p.locator('#daily-goal').dispatchEvent('change');await saveProfile();
-  assert.equal(await week('2026-10-20').textContent(),'·'); // Both still requires the increased reading goal.
-  await p.locator('#completion-rule').selectOption('reading');await saveProfile();assert.equal(await week('2026-10-20').textContent(),'·');
+  assert.equal(await week('2026-10-20').locator('.completion-check').count(),1); // The previously earned completion survives the increased goal.
+  await p.locator('#completion-rule').selectOption('reading');await saveProfile();assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
   await p.locator('#completion-rule').selectOption('qt');await saveProfile();assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
-  await p.locator('#completion-rule').selectOption('both');await saveProfile();assert.equal(await week('2026-10-20').textContent(),'·');
+  await p.locator('#completion-rule').selectOption('both');await saveProfile();assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
   await readDate('2026-10-20','genesis-3');assert.equal(await week('2026-10-20').locator('.completion-check').count(),1);
   // Completed records can come from different books; switching books doesn't reset totals.
   await nav('account');await p.locator('#reading-book').selectOption('revelation');await saveProfile();
@@ -149,7 +149,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await nav('account');await p.locator('#completion-rule').selectOption('both');
   await p.locator('#daily-goal').fill('1');await p.locator('#daily-goal').dispatchEvent('change');await saveProfile();
   assert.equal(await week('2026-10-25').locator('.completion-check').count(),1);
-  await p.locator('#skip-sunday-qt').uncheck();await saveProfile();assert.equal(await week('2026-10-25').textContent(),'·');
+  await p.locator('#skip-sunday-qt').uncheck();await saveProfile();assert.equal(await week('2026-10-25').locator('.completion-check').count(),1);
   await p.locator('#skip-sunday-qt').check();await saveProfile();
   // Goal changes from Monday onward preserve Sunday's goal and completion.
   await p.clock.setSystemTime(new Date('2026-10-26T03:00:00Z'));await p.reload();await nav('account');

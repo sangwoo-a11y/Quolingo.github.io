@@ -17,6 +17,10 @@
       if(equal(l,r))return clone(l);
       if(equal(l,b))return clone(r);
       if(equal(r,b))return clone(l);
+      if(path.at(-1)==='completedRules'&&[b,l,r].every(value=>value===undefined||Array.isArray(value))){
+        // Completion criteria are append-only; concurrent achievements retain both snapshots.
+        return [...(l||[]),...(r||[])].filter((value,index,all)=>all.findIndex(other=>equal(other,value))===index).map(clone);
+      }
       const setPath=['read','chapters'].includes(path.at(-1));
       if(setPath&&[b,l,r].every(v=>v===undefined||Array.isArray(v))&&[...(b||[]),...(l||[]),...(r||[])].every(v=>typeof v==='string'||Number.isInteger(v))){
         const values=[...new Set([...(b||[]),...(l||[]),...(r||[])])];

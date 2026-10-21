@@ -95,19 +95,19 @@ function updateRecord(changes) {
   const read = changes.read ? [...new Set([...readVerses(selected,selectedDate), ...changes.read])].sort((a,b)=>a-b) : readVerses(selected,selectedDate);
   data[selectedDate] = {...data[selectedDate], [selected]: {...entry, read, lastRange:{start:rangeStart,end:rangeEnd},
     sessions:{...entry.sessions, [rangeKey()]:session}}};
-  try { accountStore.setItem(KEY, JSON.stringify(data)); return true; }
+  try { accountStore.setItem(KEY, JSON.stringify(data));rememberCompletion(selectedDate);return true; }
   catch { toast('기기에 기록을 저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); return false; }
 }
 function escapeHTML(value) { return String(value ?? '').replace(/[&<>"']/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x])); }
 function qtCompletedDay(date) { return Boolean(legacy[date]?.completed || Object.values(data[date]||{}).some(entry => entry?.completed || Object.values(entry?.sessions || {}).some(r=>r?.completed))); }
 function readChapters(date=today) { return [...new Set(Array.isArray(readingData[date]?.chapters)?readingData[date].chapters:[])].filter(id=>ACTIVE_CHAPTER_IDS.has(id)); }
-function daySettings(date) {
-  if(date===today)return DailyProgress.settings(profile);
+function daySettings(date, referenceProfile=profile) {
+  if(date===today)return DailyProgress.settings(referenceProfile);
   if(readingData[date]?.rules)return DailyProgress.settings(readingData[date].rules);
   // Older completed QT days keep their original completion rule.
-  return DailyProgress.settings(qtCompletedDay(date)?{}:profile);
+  return DailyProgress.settings(qtCompletedDay(date)?{}:referenceProfile);
 }
-function dailyState(date) { return DailyProgress.state(date,qtCompletedDay(date),readChapters(date).length,daySettings(date)); }
+function dailyState(date) { return DailyProgress.state(date,qtCompletedDay(date),readChapters(date).length,daySettings(date),readingData[date]?.completedRules); }
 function completedDay(date) { return dailyState(date).complete; }
 function streak() { return DailyProgress.streak(today,dailyState,shiftDay); }
 function persistReading() {
@@ -117,15 +117,43 @@ function persistReading() {
 function rememberDailyRules(date) {
   if(!readingData[date]?.rules) { readingData[date]={...readingData[date],rules:daySettings(date)};persistReading(); }
 }
-function saveTodayRules() {
-  readingData[today]={...readingData[today],rules:DailyProgress.settings(profile)};
-  persistReading();
+function withCompletionRules(date, entry={}, rules=daySettings(date)) {
+  const config=DailyProgress.settings(rules);
+  const count=[...new Set(Array.isArray(entry.chapters)?entry.chapters:[])].filter(id=>ACTIVE_CHAPTER_IDS.has(id)).length;
+  if(!DailyProgress.state(date,qtCompletedDay(date),count,config).complete)return entry;
+  const completed=Array.isArray(entry.completedRules)?entry.completedRules.filter(rule=>rule&&typeof rule==='object'&&!Array.isArray(rule)):[];
+  if(completed.some(rule=>JSON.stringify(DailyProgress.settings(rule))===JSON.stringify(config)))return entry;
+  return {...entry,completedRules:[...completed,config]};
+}
+function rememberCompletion(date) {
+  const entry=readingData[date]||{},next=withCompletionRules(date,entry);
+  if(next!==entry){readingData={...readingData,[date]:next};persistReading();}
+}
+function commitProfile(nextProfile, previousProfile=profile) {
+  const nextReading={...readingData};
+  // Seal historical rules before changing the profile, including records from older versions.
+  const dates=new Set([...Object.keys(data),...Object.keys(legacy),...Object.keys(readingData)].filter(date=>validDay(date)&&date<=today));
+  const earliest=[...dates].sort()[0]||today,limit=shiftDay(today,-39999);
+  // Rest days have no entries, but must retain their old Sunday exemption as well.
+  for(let date=earliest<limit?limit:earliest;date<=today;date=shiftDay(date,1))dates.add(date);
+  for(const date of dates) {
+    const rules=daySettings(date,previousProfile);
+    nextReading[date]=withCompletionRules(date,{...readingData[date],rules:readingData[date]?.rules||rules},rules);
+  }
+  const rules=DailyProgress.settings(nextProfile);
+  nextReading[today]=withCompletionRules(today,{...nextReading[today],rules},rules);
+  const previousReading=accountStore.getItem(READING_KEY)||'{}';
+  accountStore.setItem(READING_KEY,JSON.stringify(nextReading));
+  try {accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));}
+  catch(error){try{accountStore.setItem(READING_KEY,previousReading);}catch{}throw error;}
+  readingData=nextReading;profile=nextProfile;
 }
 function setChapterRead(id=selected,date=selectedDate,read=true) {
   if(!ACTIVE_CHAPTER_IDS.has(id)||!validDay(date)||date>today)return;
   const chapters=readChapters(date);
   const next={...readingData,[date]:{...readingData[date],rules:readingData[date]?.rules||daySettings(date),
     chapters:read?[...new Set([...chapters,id])]:chapters.filter(item=>item!==id)}};
+  next[date]=withCompletionRules(date,next[date]);
   try { accountStore.setItem(READING_KEY,JSON.stringify(next)); }
   catch { toast('읽기 기록을 저장할 수 없어요. 다시 시도해 주세요.');return; }
   readingData=next;render(page);
@@ -435,7 +463,7 @@ function closeShare() {document.querySelector('#share-dialog').close();clearShar
 document.querySelector('#share-dialog').addEventListener('cancel',clearShare);
 document.querySelector('#share-dialog').addEventListener('close',()=>{if(!document.querySelector('#share-dialog').open)clearShare();});
 function conflictLabel(path) {
-  const labels={profile:'계정',chapters:'QT',reading:'말씀 읽기',legacyEntries:'이전 묵상',observation:'관찰',interpretation:'해석',application:'적용',completed:'완료',completedSteps:'QT 진행',name:'이름',avatar:'캐릭터',theme:'기본 색',qtBookId:'QT',readingBookId:'말씀',dailyGoal:'목표',completionRule:'완료 조건',skipSundayQt:'일요일 QT',rules:'완료 기준',sessions:'',lastRange:'말씀 범위',start:'시작 절',end:'끝 절'};
+  const labels={profile:'계정',chapters:'QT',reading:'말씀 읽기',legacyEntries:'이전 묵상',observation:'관찰',interpretation:'해석',application:'적용',completed:'완료',completedSteps:'QT 진행',name:'이름',avatar:'캐릭터',theme:'기본 색',qtBookId:'QT',readingBookId:'말씀',dailyGoal:'목표',completionRule:'완료 조건',skipSundayQt:'일요일 QT',rules:'완료 기준',completedRules:'달성 당시 기준',sessions:'',lastRange:'말씀 범위',start:'시작 절',end:'끝 절'};
   return path.map(key=>labels[key]??(CHAPTER_BY_ID.has(key)?`${CHAPTER_BY_ID.get(key).book} ${CHAPTER_BY_ID.get(key).chapter}장`:key)).filter(Boolean).join(' · ');
 }
 function cloudAccountHTML() {
@@ -508,7 +536,7 @@ document.addEventListener('submit',e=>{
     e.preventDefault();const values=new FormData(e.target),name=String(values.get('name')||'').trim(),avatar=String(values.get('avatar')||''),theme=String(values.get('theme')||''),qtBookId=String(values.get('qtBook')||''),readingBookId=String(values.get('readingBook')||'');
     if(!name||name.length>20||!Object.hasOwn(AVATARS,avatar)||!Object.hasOwn(THEMES,theme)||!validBookId(qtBookId)||!validBookId(readingBookId))return;
     const nextProfile={...profile,name,avatar,theme,qtBookId,readingBookId,...DailyProgress.settings({dailyGoal:Number(values.get('dailyGoal')),completionRule:values.get('completionRule'),skipSundayQt:values.get('skipSundayQt')==='on'})};
-    try{accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;saveTodayRules();render('account');toast('프로필을 저장했어요.');}
+    try{commitProfile(nextProfile);render('account');toast('프로필을 저장했어요.');}
     catch{toast('프로필을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.');}
     return;
   }
@@ -577,7 +605,7 @@ function refreshDay(){if(today!==dayKey()){rememberDailyRules(today);today=dayKe
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDay();});setInterval(refreshDay,30000);
 if(savedProfile.completionRule==='either') {
   // Remove the retired choice from the current profile, keeping past daily rules intact.
-  try { accountStore.setItem(PROFILE_KEY,JSON.stringify(profile));saveTodayRules(); }
+  try { commitProfile(profile,{...profile,...DailyProgress.settings(savedProfile)}); }
   catch { toast('설정을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.'); }
 }
 if(!validBookId(savedProfile.qtBookId)||!validBookId(savedProfile.readingBookId)){
