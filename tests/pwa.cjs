@@ -35,16 +35,24 @@ const server=http.createServer((req,res)=>{
   }
   await p.locator('.nav[data-page=account]').click();
   await p.locator('#profile-name').fill('작성 중인 이름');
+  const originalProfile=await p.evaluate(()=>localStorage.getItem('quolingo-profile-v1'));
   const colors={apricot:'#f7b77f',sunshine:'#f4d778',sand:'#c6b3a2',sky:'#9dc9dc',rose:'#e2a3ad',lavender:'#b8aad6'};
   for(const [id,color] of Object.entries(colors)){
    await p.locator(`input[name=theme][value=${id}]`).check();
    assert.equal(await p.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()),color);
    assert.equal(await p.locator('#profile-name').inputValue(),'작성 중인 이름');
-   assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('quolingo-profile-v1')).theme),id);
+   assert.equal(await p.evaluate(()=>localStorage.getItem('quolingo-profile-v1')),originalProfile);
    assert.equal(await p.locator('meta[name=theme-color]').getAttribute('content'),color);
   }
+  await p.locator('.nav[data-page=home]').click();assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'apricot');
+  await p.locator('.nav[data-page=account]').click();assert.equal(await p.locator('input[name=theme][value=apricot]').isChecked(),true);
+  await p.locator('input[name=theme][value=lavender]').check();
+  await p.reload();await p.locator('.nav[data-page=account]').click();assert.equal(await p.locator('input[name=theme][value=apricot]').isChecked(),true);
+  assert.equal(await p.locator('#profile-name').inputValue(),'');
+  await p.locator('#profile-name').fill('저장한 이름');await p.locator('input[name=theme][value=lavender]').check();
+  await p.locator('#account-form [type=submit]').click();
   await p.reload();await p.locator('.nav[data-page=account]').click();assert.equal(await p.locator('input[name=theme][value=lavender]').isChecked(),true);
-  assert.equal(await p.locator('#profile-name').inputValue(),''); // Colors save without submitting the name form.
+  assert.equal(await p.locator('#profile-name').inputValue(),'저장한 이름');
   await p.locator('.nav[data-page=home]').click();
   const weekly=await p.locator('.path-week .day-node').evaluateAll(nodes=>[...new Set(nodes.map(n=>getComputedStyle(n).getPropertyValue('--week-color').trim()))]);
   assert.ok(weekly.length>=4);assert.equal(weekly[0],colors.lavender);
@@ -74,6 +82,6 @@ const server=http.createServer((req,res)=>{
   assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'lavender');
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await context.setOffline(false);assert.deepEqual(errors,[]);
-  console.log('PASS: real Chrome installability, project-scoped manifest/icons/service worker, all color choices and immediate persistence, distinct weekly colors, explicit install/cancel/fallback/installed states, fresh network assets, public-only caches and offline Bible navigation.');
+  console.log('PASS: real Chrome installability, project-scoped manifest/icons/service worker, color previews without writes, unsaved navigation/reload reset, profile-save persistence, distinct weekly colors, install/cancel/fallback/installed states, fresh network assets, public-only caches and offline Bible navigation.');
  }finally{if(context)await context.close();await new Promise(resolve=>server.close(resolve));fs.rmSync(profileDir,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;server.close();});

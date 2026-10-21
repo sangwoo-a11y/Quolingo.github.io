@@ -36,6 +36,8 @@ const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbb
   assert.equal(await p.locator('[data-action=cloud-import],[data-action=cloud-sync],[data-action=export]').count(),0);
   assert.equal(await p.locator('label[for=qt-book]').textContent(),'QT');
   await p.locator('input[name=theme][value=sky]').check();await p.clock.runFor(1000);await p.waitForFunction(()=>cloudAccount.status==='synced');
+  assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.theme,A),undefined);
+  await p.locator('#account-form [type=submit]').click();await p.clock.runFor(1000);await p.waitForFunction(()=>cloudAccount.status==='synced');
   assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.theme,A),'sky');
   await nav('journal');
   // An account edit is saved in its own cache and uploaded automatically.

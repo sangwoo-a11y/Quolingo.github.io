@@ -37,9 +37,9 @@ function normalizedProfile(value={}) {
   return {name:typeof value.name==='string'?value.name.slice(0,20):'',avatar:Object.hasOwn(AVATARS,value.avatar)?value.avatar:'ko',theme:Object.hasOwn(THEMES,value.theme)?value.theme:'apricot',qtBookId:validBookId(value.qtBookId)?value.qtBookId:previousBookId,readingBookId:validBookId(value.readingBookId)?value.readingBookId:previousBookId,...DailyProgress.settings({...value,completionRule:value.completionRule==='either'?'both':value.completionRule})};
 }
 let profile=normalizedProfile(savedProfile);
-function applyTheme() {
-  const root=document.documentElement,palette=Object.values(THEMES),index=Object.keys(THEMES).indexOf(profile.theme),theme=palette[index];
-  root.dataset.theme=profile.theme;
+function applyTheme(themeId=profile.theme) {
+  const root=document.documentElement,palette=Object.values(THEMES),index=Object.keys(THEMES).indexOf(themeId),theme=palette[index];
+  root.dataset.theme=themeId;
   root.style.setProperty('--accent',theme.color);root.style.setProperty('--accent-shadow',theme.shadow);
   palette.forEach((_,i)=>{const tone=palette[(index+i)%palette.length];root.style.setProperty(`--week-${i}-color`,tone.color);root.style.setProperty(`--week-${i}-shadow`,tone.shadow);});
   document.querySelector('meta[name="theme-color"]').content=theme.color;
@@ -488,9 +488,7 @@ document.addEventListener('change',e=>{
   const id=e.target.id;
   if(e.target.name==='theme') {
     const theme=e.target.value;if(!Object.hasOwn(THEMES,theme))return;
-    const nextProfile={...profile,theme};
-    try {accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;applyTheme();}
-    catch {document.querySelector(`input[name="theme"][value="${profile.theme}"]`).checked=true;toast('색상을 저장할 수 없어요. 다시 시도해 주세요.');}
+    applyTheme(theme);
     return;
   }
   if(['qt-book','reading-book'].includes(id)){
@@ -522,9 +520,9 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('submit',e=>{
   if(e.target.id==='account-form'){
-    e.preventDefault();const values=new FormData(e.target),name=String(values.get('name')||'').trim(),avatar=String(values.get('avatar')||''),qtBookId=String(values.get('qtBook')||''),readingBookId=String(values.get('readingBook')||'');
-    if(!name||name.length>20||!Object.hasOwn(AVATARS,avatar)||!validBookId(qtBookId)||!validBookId(readingBookId))return;
-    const nextProfile={...profile,name,avatar,qtBookId,readingBookId,...DailyProgress.settings({dailyGoal:Number(values.get('dailyGoal')),completionRule:values.get('completionRule'),skipSundayQt:values.get('skipSundayQt')==='on'})};
+    e.preventDefault();const values=new FormData(e.target),name=String(values.get('name')||'').trim(),avatar=String(values.get('avatar')||''),theme=String(values.get('theme')||''),qtBookId=String(values.get('qtBook')||''),readingBookId=String(values.get('readingBook')||'');
+    if(!name||name.length>20||!Object.hasOwn(AVATARS,avatar)||!Object.hasOwn(THEMES,theme)||!validBookId(qtBookId)||!validBookId(readingBookId))return;
+    const nextProfile={...profile,name,avatar,theme,qtBookId,readingBookId,...DailyProgress.settings({dailyGoal:Number(values.get('dailyGoal')),completionRule:values.get('completionRule'),skipSundayQt:values.get('skipSundayQt')==='on'})};
     try{accountStore.setItem(PROFILE_KEY,JSON.stringify(nextProfile));profile=nextProfile;saveTodayRules();render('account');toast('프로필을 저장했어요.');}
     catch{toast('프로필을 저장할 수 없어요. 브라우저 저장 공간을 확인해 주세요.');}
     return;
