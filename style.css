@@ -107,3 +107,8 @@
 
 /* Shared themed surfaces and titles throughout QT, journals and records. */
 .card,.entry,.profile-summary{background:var(--panel)}
+
+/* Upper-body portraits include both hands, with the lower torso outside the frame. */
+.avatar-option .avatar-portrait{width:108px;height:96px;max-width:100%;margin:0;transform:none;overflow:hidden;pointer-events:none;z-index:auto}
+.avatar-portrait .friend-motion,.avatar-portrait .friend-hand{animation:none;transform:none}
+@media(max-width:580px){.avatar-option .avatar-portrait{width:90px;height:82px}}
