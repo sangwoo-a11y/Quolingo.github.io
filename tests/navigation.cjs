@@ -17,6 +17,19 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   const total=async expected=>{
    assert.deepEqual(await p.locator('[data-stat=total]').allTextContents(),[String(expected),String(expected)]);
   };
+  const selectedNav=async expected=>{
+   assert.deepEqual(await p.locator('.nav.active').evaluateAll(els=>els.map(el=>el.dataset.page)),[expected]);
+   assert.deepEqual(await p.locator('.nav[aria-current=page]').evaluateAll(els=>els.map(el=>el.dataset.page)),[expected]);
+   for(const item of await p.locator('.nav:not(.active)').evaluateAll(els=>els.map(el=>({page:el.dataset.page,background:getComputedStyle(el).backgroundColor}))))
+    assert.equal(item.background,'rgba(0, 0, 0, 0)',`${item.page} must not look selected on touch`);
+  };
+  // Touch hover must not leave Account highlighted after browser back/forward.
+  await nav('account');await back('home');
+  assert.equal(await p.locator('.nav[data-page=account]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
+  await selectedNav('home');
+  await p.goForward();await p.waitForFunction(()=>page==='account');await selectedNav('account');
+  await nav('journal');await selectedNav('journal');await nav('activity');await selectedNav('activity');
+  await nav('home');await selectedNav('home');
   await mode('reading');await openDay();
   assert.ok((await p.locator('#word-selection [type=submit]').boundingBox()).width>=132);
   await p.locator('#word-chapter').selectOption('joshua-6');await p.locator('#word-selection [type=submit]').tap();
@@ -71,7 +84,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('.reading-excerpt[open]').count(),0);
   await p.locator('#reflection').fill('모바일 적용');assert.equal(await p.evaluate(()=>dayQTPercent(today)),75);
   assert.doesNotMatch(await p.locator('#next').textContent(),/✓/);await next();assert.equal((await state()).page,'success');assert.equal(await p.evaluate(()=>dayQTPercent(today)),100);
-  await total(29);await p.locator('.success [data-page=home]').tap();
+  await selectedNav('home');await total(29);await p.locator('.success [data-page=home]').tap();
   assert.equal(await p.locator('.day-node[data-date="2026-10-20"]').evaluate(e=>e.style.getPropertyValue('--fill')),'100%');
   await mode('reading');await openDay();await p.locator('#word-chapter').selectOption('joshua-6');await p.locator('#word-selection [type=submit]').tap();
   await toggle.tap();await total(2); // Cancelling chapter reading retains the two QT verses.

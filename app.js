@@ -239,7 +239,14 @@ function render(target=page,historyMode='auto') {
     } else history.replaceState({quolingo:route,scroll:scrollY},'');
   }
   lastRoute=route;
-  page=target; document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===page || ['editor','selection','wordSelection','reader'].includes(page)&&b.dataset.page==='home'));
+  page=target;
+  const activePage=['editor','selection','wordSelection','reader','success'].includes(page)?'home':page;
+  document.querySelectorAll('.nav').forEach(button=>{
+    const active=button.dataset.page===activePage;
+    button.classList.toggle('active',active);
+    if(active)button.setAttribute('aria-current','page');
+    else button.removeAttribute('aria-current');
+  });
   ({home,selection,wordSelection,reader,editor,journal,activity,success,account}[page] || home)();updateStats();
 }
 history.scrollRestoration='manual';
