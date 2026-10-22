@@ -35,13 +35,14 @@ const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbb
   await nav('account');assert.equal(await p.locator('#profile-name').inputValue(),'계정 프로필');
   assert.equal(await p.locator('[data-action=cloud-import],[data-action=cloud-sync],[data-action=export]').count(),0);
   assert.equal(await p.locator('label[for=qt-book]').textContent(),'QT');
-  await p.locator('input[name=theme][value=sky]').check();await p.locator('#daily-goal').fill('2');await p.locator('#qt-book').selectOption('matthew');await p.clock.runFor(1000);await p.waitForFunction(()=>cloudAccount.status==='synced');
+  await p.locator('input[name=theme][value=sky]').check();await p.locator('#daily-goal').fill('2');await p.locator('#qt-book').selectOption('matthew');await p.locator('#bible-version').selectOption('rnksv');await p.clock.runFor(1000);await p.waitForFunction(()=>cloudAccount.status==='synced');
   assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.theme,A),undefined);
   assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.dailyGoal,A),undefined);
   await p.locator('#account-form [type=submit]').click();await p.clock.runFor(1000);await p.waitForFunction(()=>cloudAccount.status==='synced');
   assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.theme,A),'sky');
   assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.dailyGoal,A),2);
   assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.qtBookId,A),'matthew');
+  assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.bibleVersion,A),'rnksv');
   await nav('journal');
   // An account edit is saved in its own cache and uploaded automatically.
   await p.locator('[data-chapter="joshua-1"]').click();await p.locator('#next').click();
@@ -73,8 +74,8 @@ const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbb
   assert.equal(await p.evaluate(()=>diamondBalance()),earned-80);
   await nav('account');await p.locator('[data-action=cloud-logout]').click();await p.waitForFunction(()=>accountStore.owner===null);
   assert.equal(await p.evaluate(()=>profile.decorations.owned.meadow),undefined);
-  await signed(B);assert.equal(await p.evaluate(()=>profile.decorations.owned.meadow),undefined);
-  await signed(A);assert.equal(await p.evaluate(()=>profile.decorations.equipped.background),'meadow');
+  await signed(B);assert.equal(await p.evaluate(()=>profile.decorations.owned.meadow),undefined);assert.equal(await p.evaluate(()=>profile.bibleVersion),'krv');
+  await signed(A);assert.equal(await p.evaluate(()=>profile.decorations.equipped.background),'meadow');assert.equal(await p.evaluate(()=>profile.bibleVersion),'rnksv');
   assert.equal(await p.evaluate(()=>diamondBalance()),earned-80);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
   console.log('PASS: Google OAuth options, hidden manual controls and automatic sync, per-account records and profile, automatic upload, conflict comparison/resolution, logout isolation, second account, reload and mobile UI without external auth requests.');

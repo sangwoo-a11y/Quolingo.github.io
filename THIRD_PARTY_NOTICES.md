@@ -58,3 +58,13 @@ For compatibility, active Joshua chapters continue to use the original scrollmap
 - License: MIT, included in `vendor/SUPABASE-LICENSE`
 - File: `vendor/supabase-2.118.0.js`
 - SHA-256: `ee3be8de192b97cb1d73d1e95d6b82bb1f6b658c0f97c4ef757fc331996ed3d3`
+
+## 개역개정 · 새번역 공식 읽기 링크
+
+계정에서 개역한글·개역개정·새번역을 선택할 수 있습니다. 개역한글은 위에 기록한 로컬 본문을 사용합니다. 개역개정과 새번역은 본문을 복제·저장하거나 개역한글을 해당 번역인 것처럼 표시하지 않고, 대한성서공회의 공식 성경 읽기 페이지를 새 탭에서 엽니다. 원문은 공식 사이트에서 읽고, Quolingo에서는 기존 QT 기록·장 읽기 완료 기능을 사용합니다.
+
+- 공식 읽기: https://www.bskorea.or.kr/bible/korbibReadpage.php
+- 개역개정: `version=GAE`
+- 새번역: `version=SAENEW` (표준새번역 `SAE`와 구분)
+- 권·장·시작 절은 `book`, `chap`, `sec`로 전달합니다.
+- 공식 페이지 연결은 인터넷이 필요하며 오프라인 저장 대상에 포함하지 않습니다.

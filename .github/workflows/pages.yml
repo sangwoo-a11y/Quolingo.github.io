@@ -21,7 +21,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site/assets _site/vendor
-          cp index.html style.css app.js pwa.js sw.js manifest.webmanifest chapters.js old-testament.js new-testament.js progress.js sharing.js customization.js cloud.js supabase-config.js THIRD_PARTY_NOTICES.md _site/
+          cp index.html style.css app.js pwa.js sw.js manifest.webmanifest chapters.js old-testament.js new-testament.js progress.js sharing.js bible-reading.js customization.js cloud.js supabase-config.js THIRD_PARTY_NOTICES.md _site/
           cp assets/*.png _site/assets/
           cp vendor/supabase-2.118.0.js vendor/SUPABASE-LICENSE _site/vendor/
           touch _site/.nojekyll
