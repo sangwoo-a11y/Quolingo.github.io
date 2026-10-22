@@ -352,7 +352,7 @@ function editor() {
 }
 function journalCard(date,c,r,old=false) {
   const title=old?'이전 말씀 묵상':reference(c,r.start,r.end);
-  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date<=today&&CHAPTERS.some(item=>item.id===c.id)?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">이어쓰기</button>`:''}<button class="text-button entry-delete" data-action="delete-entry" data-delete-chapter="${old?'':c.id}" data-start="${old?'':r.start}" data-end="${old?'':r.end}" data-date="${date}" data-legacy="${old}">묵종 삭제</button></article>`;
+  return `<article class="entry"><small>${date} · ${r.completed?'묵상 완료':'작성 중'}${old?' · 이전 버전 기록':''}</small><h2>${title}</h2>${fields.map((f,i)=>`<h3>${parts[i]}</h3><p>${escapeHTML(r[f]||'아직 작성하지 않았어요.')}</p>`).join('')}${!old&&date<=today&&CHAPTERS.some(item=>item.id===c.id)?`<button class="text-button" data-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">이어쓰기</button>`:''}${!old&&r.completed?`<button class="text-button entry-share" data-action="share-entry" data-share-chapter="${c.id}" data-start="${r.start}" data-end="${r.end}" data-date="${date}">공유하기</button>`:''}<button class="text-button entry-delete" data-action="delete-entry" data-delete-chapter="${old?'':c.id}" data-start="${old?'':r.start}" data-end="${old?'':r.end}" data-date="${date}" data-legacy="${old}">묵종 삭제</button></article>`;
 }
 function deleteJournalEntry({id,date,start,end,old=false}) {
   if(!validDay(date))return;
@@ -576,6 +576,7 @@ document.addEventListener('click',e=>{
  if(b.dataset.page){render(b.dataset.page);window.scrollTo({top:0,behavior:'instant'});}
  if(b.dataset.chapter)openChapter(b.dataset.chapter,Number(b.dataset.start),Number(b.dataset.end),b.dataset.date||today);
  if(b.dataset.action==='open-share')openShare();
+ if(b.dataset.action==='share-entry')openShare({id:b.dataset.shareChapter,date:b.dataset.date,start:Number(b.dataset.start),end:Number(b.dataset.end)});
  if(b.dataset.action==='delete-entry')deleteJournalEntry({id:b.dataset.deleteChapter,date:b.dataset.date,start:Number(b.dataset.start),end:Number(b.dataset.end),old:b.dataset.legacy==='true'});
  if(b.dataset.action==='close-share')closeShare();
  if(b.dataset.action==='send-share')void sendShare();

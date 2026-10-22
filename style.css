@@ -107,3 +107,5 @@
 
 /* Shared themed surfaces and titles throughout QT, journals and records. */
 .card,.entry,.profile-summary{background:var(--panel)}
+
+.entry-share{margin-left:14px}.entry-share:first-of-type{margin-left:0}
