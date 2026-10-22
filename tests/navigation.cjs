@@ -52,7 +52,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await p.reload();assert.equal((await state()).page,'reader');assert.equal((await state()).selected,'joshua-6');await total(27);
   await p.locator('.mobile-stats .diamond-stat').tap();assert.equal((await state()).page,'reader');await nav('activity');
   assert.equal(await p.locator('.calendar-detail [data-action=unread-chapter]').count(),0);
-  assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/27개/);
+  assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/27절/);
   assert.doesNotMatch(await p.locator('#content').textContent(),/하루 완료/);
   await back('reader');assert.equal((await state()).selected,'joshua-6');
   await p.goForward();await p.waitForFunction(()=>page==='activity');await back('reader');
@@ -89,7 +89,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   await mode('reading');await openDay();await p.locator('#word-chapter').selectOption('joshua-6');await p.locator('#word-selection [type=submit]').tap();
   await toggle.tap();await total(2); // Cancelling chapter reading retains the two QT verses.
   await nav('activity');
-  assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/2개/);
+  assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/2절/);
   await nav('home');await p.locator('.mobile-logo').tap();assert.equal((await state()).page,'home');
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.deepEqual(errors,[]);

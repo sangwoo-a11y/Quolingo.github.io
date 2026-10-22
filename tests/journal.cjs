@@ -57,7 +57,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.deepEqual(await p.evaluate(()=>readChapters()),['joshua-2']);await totals(reading);
   await confirmClick(p.locator('[data-action=delete-entry][data-legacy=true]'));await streak(0);
   await p.reload();await nav('journal');assert.equal(await p.locator('.entry').count(),0);await totals(reading);
-  await nav('activity');assert.equal(await p.locator('.activity-stats .card').nth(1).locator('h2').textContent(),`${reading}개`);
+  await nav('activity');assert.equal(await p.locator('.activity-stats .card').nth(1).locator('h2').textContent(),`${reading}절`);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   assert.deepEqual(errors,[]);
   console.log('PASS: completion-only QT diamonds, first-day streak/check, mobile totals, overlapping range/draft/legacy deletion, confirmation cancellation, failed-storage rollback, unchanged chapter reading and reload persistence.');

@@ -1,4 +1,4 @@
-const CACHE='quolingo-static-20261022-3';
+const CACHE='quolingo-static-20261022-4';
 const SCOPE=new URL('./',self.location.href);
 const FILES=[
   'index.html','style.css','app.js','pwa.js','manifest.webmanifest',

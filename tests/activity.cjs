@@ -35,7 +35,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal((await p.locator('.nav[data-page=activity]').textContent()).trim(),'🏅기록');
   assert.doesNotMatch(await p.locator('#content').textContent(),/말씀 여행/);
   await nav('activity');
-  assert.equal(await p.locator('.activity-stats .card').nth(1).locator('h2').textContent(),(await p.locator('#total').textContent())+'개');
+  assert.equal(await p.locator('.activity-stats .card').nth(1).locator('h2').textContent(),(await p.locator('#total').textContent())+'절');
   assert.equal(await day('2026-10-20').getAttribute('aria-pressed'),'true');
   assert.equal(await p.locator('.calendar-day').count(),31);
   assert.equal(await p.locator('.calendar-blank').count(),3); // Thursday, Monday-first grid.

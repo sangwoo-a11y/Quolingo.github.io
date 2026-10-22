@@ -122,7 +122,6 @@
 .decor-scene .friends-cast{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);width:min(78%,330px)}
 .home-decoration{position:relative;overflow:hidden;margin:18px 0 22px;border:1px solid var(--line);border-radius:18px}
 .home-decoration .decor-scene{height:195px}.home-decoration .friends-cast{width:min(65%,255px)}
-.home-decoration>.text-button{position:absolute;right:14px;top:12px;padding:6px 13px;border-radius:18px;border:1px solid var(--accent-border);background:var(--bg);font-size:11px}
 .shop-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.shop-heading h1{margin:0;font-size:30px}.shop-heading .eyebrow{margin-bottom:5px}
 .shop-wallet{display:grid;grid-template-columns:auto auto;align-items:center;justify-content:center;gap:0 9px;padding:12px 18px;border:1px solid var(--accent-border);border-radius:17px;background:var(--accent-soft)}.shop-wallet>span{font-size:25px}.shop-wallet strong{font-size:27px;line-height:1.3;color:var(--accent)}.shop-wallet small{grid-column:1/-1;text-align:center;font-size:10px;color:var(--muted)}
 .shop-intro{color:var(--muted);font-size:12px;margin-bottom:22px;line-height:1.8}
@@ -148,3 +147,5 @@
 }
 
 .shop-balance-note{padding:12px 15px;border:1px solid var(--accent-border);border-radius:12px;background:var(--accent-soft);color:var(--accent);font-size:12px;line-height:1.8;margin-bottom:20px}
+
+.avatar-face.frame-blossom{border:4px double #e6a8be;border-radius:50%;padding:4px;background:#efb7ca22;box-shadow:0 0 0 3px #e6a8be33,0 0 13px #e6a8be22}
