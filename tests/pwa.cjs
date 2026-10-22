@@ -99,8 +99,15 @@ const server=http.createServer((req,res)=>{
   await p.locator('.nav[data-page=home]').click();await p.locator('.day-node:not([disabled])').first().click();
   await p.locator('#passage-selection [type=submit]').click();assert.ok(await p.locator('.verse-row').count()>0);
   assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'lavender');
+  assert.ok(keys.some(key=>key.endsWith('/bible-data/nkrv.json')));assert.ok(keys.some(key=>key.endsWith('/bible-data/rnksv.json')));
+  for(const version of ['nkrv','rnksv']){
+   await p.locator('.nav[data-page=account]').click();await p.locator('#bible-version').selectOption(version);await p.locator('#account-form [type=submit]').click();
+   await p.locator('.nav[data-page=home]').click();await p.locator('.day-node:not([disabled])').first().click();await p.locator('#passage-selection [type=submit]').click();await p.locator('.verse-row').first().waitFor();
+   assert.equal(await p.evaluate(()=>profile.bibleVersion),version);assert.equal(await p.locator('.official-bible-link').count(),0);
+   assert.ok(await p.locator('.verse-row').count()>0);
+  }
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await context.setOffline(false);assert.deepEqual(errors,[]);
-  console.log('PASS: real Chrome installability, project-scoped manifest/icons/service worker, color previews without writes, unsaved navigation/reload reset, profile-save persistence, distinct weekly colors, install/cancel/fallback/installed states, fresh network assets, public-only caches and offline Bible navigation.');
+  console.log('PASS: real Chrome installability, project-scoped manifest/icons/service worker, color previews without writes, unsaved navigation/reload reset, profile-save persistence, distinct weekly colors, install/cancel/fallback/installed states, fresh network assets, public-only caches and offline navigation and local KRV/NKRV/RNKSV reading.');
  }finally{if(context)await context.close();await new Promise(resolve=>server.close(resolve));fs.rmSync(profileDir,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;server.close();});

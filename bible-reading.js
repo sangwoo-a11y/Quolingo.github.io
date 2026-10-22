@@ -1,25 +1,46 @@
-// Only KRV is bundled. NKRV and RNKSV open the Bible Society of Korea reader.
+// Text comes only from local edition files supplied for this site.
 const BibleReading = (() => {
   const names=Object.freeze({krv:'개역한글',nkrv:'개역개정',rnksv:'새번역'});
-  // SAENEW is 새번역; SAE is the older 표준새번역 and must not be substituted.
-  const officialVersions={nkrv:'GAE',rnksv:'SAENEW'};
-  const bookCodes={
-    genesis:'gen',exodus:'exo',leviticus:'lev',numbers:'num',deuteronomy:'deu',joshua:'jos',judges:'jdg',ruth:'rut',
-    '1-samuel':'1sa','2-samuel':'2sa','1-kings':'1ki','2-kings':'2ki','1-chronicles':'1ch','2-chronicles':'2ch',
-    ezra:'ezr',nehemiah:'neh',esther:'est',job:'job',psalms:'psa',proverbs:'pro',ecclesiastes:'ecc','song-of-solomon':'sng',
-    isaiah:'isa',jeremiah:'jer',lamentations:'lam',ezekiel:'ezk',daniel:'dan',hosea:'hos',joel:'jol',amos:'amo',obadiah:'oba',jonah:'jon',
-    micah:'mic',nahum:'nam',habakkuk:'hab',zephaniah:'zep',haggai:'hag',zechariah:'zec',malachi:'mal',
-    matthew:'mat',mark:'mrk',luke:'luk',john:'jhn',acts:'act',romans:'rom','1-corinthians':'1co','2-corinthians':'2co',
-    galatians:'gal',ephesians:'eph',philippians:'php',colossians:'col','1-thessalonians':'1th','2-thessalonians':'2th',
-    '1-timothy':'1ti','2-timothy':'2ti',titus:'tit',philemon:'phm',hebrews:'heb',james:'jas','1-peter':'1pe','2-peter':'2pe',
-    '1-john':'1jn','2-john':'2jn','3-john':'3jn',jude:'jud',revelation:'rev'
-  };
-  function officialURL(version,bookId,chapter,start=1) {
-    if(!Object.hasOwn(officialVersions,version)||!Object.hasOwn(bookCodes,bookId)||!Number.isInteger(chapter)||chapter<1||chapter>150||!Number.isInteger(start)||start<1||start>176)return null;
-    const url=new URL('https://www.bskorea.or.kr/bible/korbibReadpage.php');
-    url.search=new URLSearchParams({version:officialVersions[version],book:bookCodes[bookId],chap:String(chapter),sec:String(start)}).toString();
-    return url.href;
+  const index=typeof BIBLE_EDITION_INDEX!=='undefined'?BIBLE_EDITION_INDEX:require('./bible-editions.js');
+  const editions=new Map(),pending=new Map();
+  const key=chapter=>chapter.id.startsWith('psalm-')?'psalms-'+chapter.chapter:chapter.id;
+  function count(chapter,version='krv') {return index[version]?.[key(chapter)]||chapter.verses.length;}
+  function maxCount(chapter) {return Math.max(chapter.verses.length,...Object.keys(index).map(version=>count(chapter,version)));}
+  function ready(version) {return version==='krv'||editions.has(version);}
+  function validate(version,value) {
+    const expected=index[version];
+    if(value?.edition!==version||!value.chapters||Object.keys(value.chapters).length!==Object.keys(expected).length)throw Error('Invalid edition');
+    for(const [id,length] of Object.entries(expected)){
+      const chapter=value.chapters[id];let end=0;
+      if(chapter?.count!==length||!Array.isArray(chapter.rows)||!chapter.rows.length)throw Error('Missing chapter');
+      for(const row of chapter.rows){
+        if(!Array.isArray(row)||row.length!==3||!Number.isInteger(row[0])||!Number.isInteger(row[1])||row[0]<=end||row[1]<row[0]||row[1]>length||typeof row[2]!=='string'||!row[2].trim())throw Error('Invalid verse');
+        end=row[1];
+      }
+      if(chapter.headings&&(!Array.isArray(chapter.headings)||!chapter.headings.every(text=>typeof text==='string')))throw Error('Invalid heading');
+    }
+    return value;
   }
-  return {names,officialURL};
+  function load(version,request=fetch) {
+    if(ready(version))return Promise.resolve();
+    if(!Object.hasOwn(index,version))return Promise.reject(Error('Unknown edition'));
+    if(pending.has(version))return pending.get(version);
+    const task=(async()=>{
+      const response=await request(`bible-data/${version}.json`);
+      if(!response.ok)throw Error('Unable to load edition');
+      const value=validate(version,await response.json());editions.set(version,value);
+    })().finally(()=>pending.delete(version));
+    pending.set(version,task);return task;
+  }
+  function rows(chapter,version,start=1,end=count(chapter,version)) {
+    if(!ready(version))throw Error('Edition not loaded');
+    const source=version==='krv'?chapter.verses.map((text,i)=>[i+1,i+1,text]):editions.get(version).chapters[key(chapter)].rows;
+    const result=source.filter(([a,b])=>a<=end&&b>=start).map(([start,end,text])=>({start,end,text}));
+    const covered=new Set(result.flatMap(row=>Array.from({length:row.end-row.start+1},(_,i)=>row.start+i)));
+    for(let n=start;n<=end;n++)if(!covered.has(n))result.push({start:n,end:n,text:null});
+    return result.sort((a,b)=>a.start-b.start);
+  }
+  function headings(chapter,version) {return version==='krv'?[]:editions.get(version)?.chapters[key(chapter)]?.headings||[];}
+  return {names,count,maxCount,ready,load,rows,headings};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=BibleReading;
