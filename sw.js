@@ -1,9 +1,9 @@
-const CACHE='quolingo-static-20261022-2';
+const CACHE='quolingo-static-20261022-3';
 const SCOPE=new URL('./',self.location.href);
 const FILES=[
   'index.html','style.css','app.js','pwa.js','manifest.webmanifest',
   'old-testament.js','new-testament.js','chapters.js','progress.js','sharing.js',
-  'cloud.js','supabase-config.js','vendor/supabase-2.118.0.js',
+  'cloud.js','customization.js','supabase-config.js','vendor/supabase-2.118.0.js',
   'assets/character-parts.png','assets/friends.png','assets/app-icon-192.png',
   'assets/app-icon-512.png','assets/app-icon-maskable-512.png','assets/apple-touch-icon.png','assets/favicon-32.png'
 ];

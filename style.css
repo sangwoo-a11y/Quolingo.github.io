@@ -109,3 +109,42 @@
 .card,.entry,.profile-summary{background:var(--panel)}
 
 .entry-share{margin-left:14px}.entry-share:first-of-type{margin-left:0}
+
+/* Earned diamonds buy reusable decorations, shown in the home scene and on friends. */
+.avatar-face.frame-leaves{border:3px solid #9abb8c;border-radius:50%;padding:4px;background:#72966a22;box-shadow:0 0 0 3px #9abb8c33}
+.avatar-face.frame-sparkle{border:3px dotted #e6c98a;border-radius:50%;padding:4px;background:#a796ca22;box-shadow:0 0 0 3px #b6a5d133}
+.decor-scene{position:relative;height:260px;overflow:hidden;background:radial-gradient(ellipse at 50% 90%,var(--accent-soft),transparent 75%),var(--panel)}
+.scene-meadow{background:linear-gradient(180deg,#bed9d8,#e0e6bd)}
+.scene-sunset{background:linear-gradient(180deg,#cfa2b5,#f1c6af)}
+.scene-starlight{background:linear-gradient(180deg,#252842,#656184)}
+.landscape-art{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.scene-ground{position:absolute;left:17%;right:17%;bottom:12px;height:25px;border-radius:50%;background:#00000015}
+.decor-scene .friends-cast{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);width:min(78%,330px)}
+.home-decoration{position:relative;overflow:hidden;margin:18px 0 22px;border:1px solid var(--line);border-radius:18px}
+.home-decoration .decor-scene{height:195px}.home-decoration .friends-cast{width:min(65%,255px)}
+.home-decoration>.text-button{position:absolute;right:14px;top:12px;padding:6px 13px;border-radius:18px;border:1px solid var(--accent-border);background:var(--bg);font-size:11px}
+.shop-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.shop-heading h1{margin:0;font-size:30px}.shop-heading .eyebrow{margin-bottom:5px}
+.shop-wallet{display:grid;grid-template-columns:auto auto;align-items:center;justify-content:center;gap:0 9px;padding:12px 18px;border:1px solid var(--accent-border);border-radius:17px;background:var(--accent-soft)}.shop-wallet>span{font-size:25px}.shop-wallet strong{font-size:27px;line-height:1.3;color:var(--accent)}.shop-wallet small{grid-column:1/-1;text-align:center;font-size:10px;color:var(--muted)}
+.shop-intro{color:var(--muted);font-size:12px;margin-bottom:22px;line-height:1.8}
+.shop-stage{border:1px solid var(--line);border-radius:20px;overflow:hidden;margin-bottom:26px;background:var(--panel)}
+.shop-stage-caption{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:49px;padding:10px 17px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}.shop-stage-caption .text-button{padding:0;font-size:11px}
+.shop-profile-preview{display:flex;align-items:center;justify-content:center;gap:15px;padding:12px 18px 20px;color:var(--text);font-weight:700}.shop-profile-preview>.avatar-face{width:60px;height:60px}
+.shop-tabs{display:flex;gap:8px;margin-bottom:22px}.shop-tabs>button{flex:1;min-width:0;min-height:44px;padding:9px 5px;border:1px solid var(--line);border-bottom-width:3px;border-radius:12px;background:var(--panel);color:var(--muted);font-size:12px;font-weight:700}.shop-tabs>button[aria-pressed=true]{border-color:var(--accent-shadow);background:var(--accent-soft);color:var(--accent)}
+.shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:40px}.shop-item{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:17px;background:var(--panel)}.shop-item.item-equipped{border-color:var(--accent-border)}
+.item-preview{position:relative;height:150px;overflow:hidden;display:grid;place-items:center;background-color:var(--accent-soft)}.preview-house{position:absolute;bottom:20px;left:50%;font-size:50px;line-height:1;color:#fff6;transform:translateX(-50%)}.base-preview>span{font-size:60px;color:var(--accent);opacity:.6}
+.accessory-preview .friends-cast,.base-preview .friends-cast{width:130px;max-width:85%;height:135px;align-items:center}.accessory-preview .friend-character,.base-preview .friend-character{max-height:100%;width:100%;margin:0;transform:none}
+.frame-preview>.avatar-face,.base-preview>.avatar-face{width:84px;height:84px}
+.item-info{padding:16px 16px 0}.item-info h2{font-size:15px;margin:0 0 5px;letter-spacing:-.3px}.item-info p{font-size:12px;color:var(--muted);margin:0}
+.shop-item-actions{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:10px 16px 16px}.shop-item-actions>.primary,.shop-item-actions>.outline-button{font-size:11px;padding:8px 13px;min-height:39px}.shop-item-actions>.text-button{font-size:11px}.shop-item-actions button:disabled{filter:none;opacity:.6}
+.shop-characters{display:flex;gap:10px}.shop-characters>button{display:flex;align-items:center;justify-content:center;gap:9px;flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:9px;color:var(--muted);font-size:12px}.shop-characters .avatar-face{width:39px;height:36px}.shop-characters>button[aria-pressed=true]{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft)}
+.shop-target{font-size:11px;color:var(--muted);line-height:1.8;margin:12px 0 22px}
+@media(max-width:580px){
+ .sidebar nav .nav{flex:1;min-width:0;padding:7px 3px;font-size:10px}
+ .shop-heading h1{font-size:26px}.shop-wallet{padding:10px 14px}.shop-wallet strong{font-size:25px}
+ .shop-intro{font-size:11px}.shop-stage .decor-scene{height:215px}.shop-stage .friends-cast{width:min(78%,275px)}
+ .shop-grid{gap:11px}.item-preview{height:130px}.item-info{padding:13px 11px 0}.item-info h2{font-size:13px}.shop-item-actions{padding:8px 11px 13px;flex-direction:column;gap:2px}.shop-item-actions>.primary,.shop-item-actions>.outline-button{width:100%;min-height:42px}.shop-item-actions>.text-button{padding:8px;min-height:36px}
+ .shop-characters{gap:7px}.shop-characters>button{gap:5px;padding:8px 5px}.shop-target{font-size:10px}
+ .home-decoration .decor-scene{height:172px}.home-decoration .friends-cast{width:min(72%,230px)}
+}
+
+.shop-balance-note{padding:12px 15px;border:1px solid var(--accent-border);border-radius:12px;background:var(--accent-soft);color:var(--accent);font-size:12px;line-height:1.8;margin-bottom:20px}

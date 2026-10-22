@@ -64,6 +64,18 @@ const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbb
   await signed(A);await nav('journal');assert.match(await p.locator('#content').textContent(),/LOCAL_NOTE/);
   assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'sky');
   await p.reload();await nav('journal');assert.match(await p.locator('#content').textContent(),/LOCAL_NOTE/);
+  // Buying a decoration uploads the same profile atomically and stays account-scoped.
+  await p.evaluate(()=>{readingData={...readingData,'2026-10-19':{chapters:['genesis-1','genesis-2','genesis-3','genesis-4']}};accountStore.setItem(READING_KEY,JSON.stringify(readingData));});
+  await nav('customize');const earned=await p.evaluate(()=>allTimeCount());
+  p.once('dialog',dialog=>dialog.accept());await p.locator('#shop-meadow').click();
+  await p.clock.runFor(1000);await p.waitForFunction(()=>cloudAccount.status==='synced');
+  assert.equal(await p.evaluate(id=>JSON.parse(localStorage.getItem('mock-database'))[id].payload.profile.decorations.owned.meadow,A),true);
+  assert.equal(await p.evaluate(()=>diamondBalance()),earned-80);
+  await nav('account');await p.locator('[data-action=cloud-logout]').click();await p.waitForFunction(()=>accountStore.owner===null);
+  assert.equal(await p.evaluate(()=>profile.decorations.owned.meadow),undefined);
+  await signed(B);assert.equal(await p.evaluate(()=>profile.decorations.owned.meadow),undefined);
+  await signed(A);assert.equal(await p.evaluate(()=>profile.decorations.equipped.background),'meadow');
+  assert.equal(await p.evaluate(()=>diamondBalance()),earned-80);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
   console.log('PASS: Google OAuth options, hidden manual controls and automatic sync, per-account records and profile, automatic upload, conflict comparison/resolution, logout isolation, second account, reload and mobile UI without external auth requests.');
  }finally{await browser.close();}

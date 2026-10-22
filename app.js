@@ -34,7 +34,7 @@ const savedProfile=load(PROFILE_KEY);
 const validBookId=id=>BOOKS.some(book=>book.id===id);
 function normalizedProfile(value={}) {
   const previousBookId=validBookId(value.bookId)?value.bookId:'joshua';
-  return {name:typeof value.name==='string'?value.name.slice(0,20):'',avatar:Object.hasOwn(AVATARS,value.avatar)?value.avatar:'ko',theme:Object.hasOwn(THEMES,value.theme)?value.theme:'apricot',qtBookId:validBookId(value.qtBookId)?value.qtBookId:previousBookId,readingBookId:validBookId(value.readingBookId)?value.readingBookId:previousBookId,...DailyProgress.settings({...value,completionRule:value.completionRule==='either'?'both':value.completionRule})};
+  return {name:typeof value.name==='string'?value.name.slice(0,20):'',avatar:Object.hasOwn(AVATARS,value.avatar)?value.avatar:'ko',theme:Object.hasOwn(THEMES,value.theme)?value.theme:'apricot',qtBookId:validBookId(value.qtBookId)?value.qtBookId:previousBookId,readingBookId:validBookId(value.readingBookId)?value.readingBookId:previousBookId,...DailyProgress.settings({...value,completionRule:value.completionRule==='either'?'both':value.completionRule}),decorations:QuolingoDecor.normalize(value.decorations)};
 }
 let profile=normalizedProfile(savedProfile);
 function applyTheme(themeId=profile.theme) {
@@ -200,9 +200,10 @@ function dayQTPercent(date) {
 }
 function toast(message) { const el=document.querySelector('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3500); }
 function updateStats() {
-  const count=allTimeCount(), days=streak();
+  const count=diamondBalance(), days=streak();
   document.querySelectorAll('[data-stat="streak"]').forEach(el=>el.textContent=days);
-  document.querySelectorAll('[data-stat="total"]').forEach(el=>{el.textContent=count;el.closest('.diamond-stat')?.setAttribute('aria-label',`누적 읽은 말씀 ${count}절`);});
+  document.querySelectorAll('[data-stat="total"]').forEach(el=>{el.textContent=count;el.closest('.diamond-stat')?.setAttribute('aria-label',`사용 가능한 다이아 ${count}개`);});
+  document.querySelector('.sidebar-friend').innerHTML=friendsArt('손을 흔들며 인사하는 뮤니, 코, 타스');
   document.querySelectorAll('[data-profile-avatar]').forEach(el=>el.innerHTML=avatarFace(profile.avatar));
   const weekday=new Date(today+'T12:00:00+09:00').getUTCDay();const monday=shiftDay(today,-((weekday+6)%7));
   document.querySelector('#week').innerHTML=['월','화','수','목','금','토','일'].map((label,i)=>{
@@ -220,7 +221,7 @@ function routeState(target=page) {
 function routeKey(route) { return JSON.stringify(route); }
 function restoreRoute(route) {
   if((route?.owner||null)!==accountStore.owner)return false;
-  if(!route||!['home','selection','wordSelection','reader','editor','journal','activity','success','account'].includes(route.page)||!CHAPTER_BY_ID.has(route.selected)||!validDay(route.selectedDate)||route.selectedDate>today)return false;
+  if(!route||!['home','selection','wordSelection','reader','editor','journal','activity','success','account','customize'].includes(route.page)||!CHAPTER_BY_ID.has(route.selected)||!validDay(route.selectedDate)||route.selectedDate>today)return false;
   if(!Number.isInteger(route.stage)||route.stage<0||route.stage>3)return false;
   if(['editor','selection','success'].includes(route.page)&&!validRange(CHAPTER_BY_ID.get(route.selected),route.rangeStart,route.rangeEnd))return false;
   if(!validDay(route.activityMonth+'-01')||!validDay(route.activityDate)||route.activityDate>today)return false;
@@ -229,6 +230,7 @@ function restoreRoute(route) {
 }
 function render(target=page,historyMode='auto') {
   applyTheme();
+  if(target!=='customize')shopPreview=null;
   releaseHeldButton();clearTimeout(openingDayTimer);openingDayTimer=null;
   const route=routeState(target),changed=lastRoute&&routeKey(lastRoute)!==routeKey(route);
   if(historyMode!=='none') {
@@ -247,7 +249,7 @@ function render(target=page,historyMode='auto') {
     if(active)button.setAttribute('aria-current','page');
     else button.removeAttribute('aria-current');
   });
-  ({home,selection,wordSelection,reader,editor,journal,activity,success,account}[page] || home)();updateStats();
+  ({home,selection,wordSelection,reader,editor,journal,activity,success,account,customize}[page] || home)();updateStats();
 }
 history.scrollRestoration='manual';
 window.addEventListener('popstate',event=>{
@@ -261,13 +263,13 @@ window.addEventListener('popstate',event=>{
 });
 function star() { return '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2 4.3 8.7 9.6 1.4-6.9 6.7 1.6 9.5L16 23.8l-8.6 4.5L9 18.8l-6.9-6.7 9.6-1.4Z" fill="currentColor"/></svg>'; }
 function checkMark() { return '<svg class="completion-check" viewBox="0 0 40 40" aria-hidden="true"><path d="m8 20 8 8 16-17" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
-function avatarFace(id) {
+function avatarFace(id,decorations=profile.decorations) {
   const avatar=AVATARS[id]||AVATARS.ko;
   const [,,width,height]=avatar.face.split(' ');
-  return `<svg class="avatar-face" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false"><svg width="${width}" height="${height}" viewBox="${avatar.face}" overflow="hidden"><image href="assets/character-parts.png" width="1536" height="1024"/></svg></svg>`;
+  return `<svg class="avatar-face frame-${decorations.equipped.frame||'default'}" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false"><svg width="${width}" height="${height}" viewBox="${avatar.face}" overflow="hidden"><image href="assets/character-parts.png" width="1536" height="1024"/></svg></svg>`;
 }
 // Body and waving arm are separate sprite regions, joined at each shoulder.
-function friendsArt(label, characterId) {
+function friendsArt(label, characterId, decorations=profile.decorations) {
   const members=characterId?(Array.isArray(characterId)?characterId:[characterId]):null;
   const cast = [
     {id:'muni',view:'-20 -30 500 470',body:[380,0,390,400],arm:[912,126,192,181],joint:[300,250],offset:[-38,-154]},
@@ -275,14 +277,14 @@ function friendsArt(label, characterId) {
     {id:'tas',view:'-10 -40 470 420',body:[413,690,340,334],arm:[904,747,194,185],joint:[300,170],offset:[-36,-155]}
   ];
   const sprite=(region,x=0,y=0)=>`<svg x="${x}" y="${y}" width="${region[2]}" height="${region[3]}" viewBox="${region.join(' ')}" overflow="hidden"><image href="assets/character-parts.png" width="1536" height="1024"/></svg>`;
-  return `<div class="friends-cast ${members?(members.length===1?'solo':'duo'):''}" role="img" aria-label="${escapeHTML(label)}">${(members?members.map(id=>cast.find(c=>c.id===id)):cast).map(c=>`<svg class="friend-character friend-${c.id}" viewBox="${c.view}" aria-hidden="true" focusable="false"><g class="friend-motion"><g transform="translate(${c.joint.join(' ')})"><g class="friend-hand">${sprite(c.arm,...c.offset)}</g></g>${sprite(c.body)}</g></svg>`).join('')}</div>`;
+  return `<div class="friends-cast ${members?(members.length===1?'solo':'duo'):''}" role="img" aria-label="${escapeHTML(label)}">${(members?members.map(id=>cast.find(c=>c.id===id)):cast).map(c=>`<svg class="friend-character friend-${c.id}" viewBox="${c.view}" aria-hidden="true" focusable="false"><g class="friend-motion"><g transform="translate(${c.joint.join(' ')})"><g class="friend-hand">${sprite(c.arm,...c.offset)}</g></g>${sprite(c.body)}${characterAccessory(c.id,decorations.equipped[c.id])}</g></svg>`).join('')}</div>`;
 }
 function home() {
   const dates=monthDates(),groups=[];
   for(const date of dates){const week=monthWeek(date);if(!groups[week])groups[week]=[];groups[week].push(date);}
   const currentBook=mode==='qt'?qtBook():readingBook();
   const month=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'long'}).format(new Date(today+'T12:00:00+09:00'));
-  content.innerHTML=`<section class="unit"><div><small>${currentBook.name}</small><h1>${month}</h1></div></section><div class="mode-tabs" role="group" aria-label="읽기 방식"><button data-action="mode" data-mode="qt" aria-pressed="${mode==='qt'}">QT</button><button data-action="mode" data-mode="reading" aria-pressed="${mode==='reading'}">말씀</button></div><p class="mobile-goal">오늘 말씀 ${readChapters().length} / 목표 ${profile.dailyGoal}장</p><div class="chapter-path month-path">${groups.map((weekDates,week)=>{
+  content.innerHTML=`<section class="unit"><div><small>${currentBook.name}</small><h1>${month}</h1></div></section><div class="mode-tabs" role="group" aria-label="읽기 방식"><button data-action="mode" data-mode="qt" aria-pressed="${mode==='qt'}">QT</button><button data-action="mode" data-mode="reading" aria-pressed="${mode==='reading'}">말씀</button></div><section class="home-decoration" aria-label="나의 꾸민 공간">${decoratedScene()}<button class="text-button" data-page="customize">꾸미기</button></section><p class="mobile-goal">오늘 말씀 ${readChapters().length} / 목표 ${profile.dailyGoal}장</p><div class="chapter-path month-path">${groups.map((weekDates,week)=>{
     const order=['ko','muni','tas'],friend=order[week%3],side=week%2===0?'right':'left';
     const members=week%3===1?[friend,order[(week+1)%3]]:[friend],middle=Math.floor((weekDates.length-1)/2);
     return `<section class="path-week ${week%2?'reverse':''}" data-week="${week+1}" aria-label="${week+1}주차"><div class="week-divider" role="separator" aria-label="${week+1}주차 시작"><span>${week+1}주차</span></div>${weekDates.map((date,i)=>{
@@ -413,7 +415,7 @@ function activity() {
     const count=chapters.reduce((sum,item)=>sum+item.times,0);
     return {book,count,chapters};
   }).filter(item=>item.count>0);
-  content.innerHTML=`<h1>기록</h1><div class="activity-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${allTimeCount()}절</h2><p>그동안 읽은 말씀</p></section><section class="card"><span>🏅</span><h2>${dates.length}일</h2><p>완료 일수</p></section></div>${activityCalendar()}<section class="card book-reading"><h2>말씀 읽기 현황</h2><p>오늘 ${readChapters().length} / 목표 ${profile.dailyGoal}장 · 누적 ${total}장</p>${books.length?`<ul class="book-reading-list">${books.map(({book,count,chapters})=>`<li data-book="${book.id}"><details class="book-reading-detail"><summary><span>${book.name}</span><strong>${count}장</strong></summary><div class="read-chapter-list" aria-label="${book.name} 읽은 장">${chapters.map(({chapter,times})=>`<span class="read-chapter">${chapter.chapter}장${times>1?`<small>${times}회</small>`:''}</span>`).join('')}</div></details></li>`).join('')}</ul><p class="reading-count-note">다른 날에 다시 읽은 장도 누적에 포함해요.</p>`:'<p>아직 읽은 장이 없어요.</p>'}</section>`;
+  content.innerHTML=`<h1>기록</h1><div class="activity-stats"><section class="card"><span>🔥</span><h2>${streak()}일</h2><p>연속학습</p></section><section class="card"><span>💎</span><h2>${diamondBalance()}개</h2><p>사용 가능한 다이아</p></section><section class="card"><span>🏅</span><h2>${dates.length}일</h2><p>완료 일수</p></section></div>${activityCalendar()}<section class="card book-reading"><h2>말씀 읽기 현황</h2><p>오늘 ${readChapters().length} / 목표 ${profile.dailyGoal}장 · 누적 ${total}장</p>${books.length?`<ul class="book-reading-list">${books.map(({book,count,chapters})=>`<li data-book="${book.id}"><details class="book-reading-detail"><summary><span>${book.name}</span><strong>${count}장</strong></summary><div class="read-chapter-list" aria-label="${book.name} 읽은 장">${chapters.map(({chapter,times})=>`<span class="read-chapter">${chapter.chapter}장${times>1?`<small>${times}회</small>`:''}</span>`).join('')}</div></details></li>`).join('')}</ul><p class="reading-count-note">다른 날에 다시 읽은 장도 누적에 포함해요.</p>`:'<p>아직 읽은 장이 없어요.</p>'}</section>`;
 }
 function success() {content.innerHTML=`<section class="success"><div class="eyebrow">WELL DONE!</div><div class="medal">🏅</div><h1>말씀을 마음에 심었어요!</h1><p>${reference()} · ${selectedVerses().length}절 묵종 완료<br>오늘의 작은 실천을 응원해요.</p>${friendsArt('손을 흔들며 축하하는 뮤니, 코, 타스')}<section class="card"><h3>🔥 ${streak()}일 연속학습</h3><p>읽기 ${readVerses(selected,selectedDate).length} / ${chapter().verses.length}절 · ${readVerses(selected,selectedDate).length===chapter().verses.length?'한 장을 모두 읽었어요!':'남은 말씀도 언제든 이어 읽을 수 있어요.'}</p></section><button class="primary wide" data-action="open-share">묵종 공유하기</button><button class="outline-button wide success-continue" data-page="home">홈 화면으로 돌아가기</button></section>`;}
 function openShare({id=selected,date=selectedDate,start=rangeStart,end=rangeEnd}={}) {
@@ -470,7 +472,7 @@ function closeShare() {document.querySelector('#share-dialog').close();clearShar
 document.querySelector('#share-dialog').addEventListener('cancel',clearShare);
 document.querySelector('#share-dialog').addEventListener('close',()=>{if(!document.querySelector('#share-dialog').open)clearShare();});
 function conflictLabel(path) {
-  const labels={profile:'계정',chapters:'QT',reading:'말씀 읽기',legacyEntries:'이전 묵종',observation:'관찰',interpretation:'해석',application:'적용',completed:'완료',completedSteps:'QT 진행',name:'이름',avatar:'캐릭터',theme:'기본 색',qtBookId:'QT',readingBookId:'말씀',dailyGoal:'목표',completionRule:'완료 조건',skipSundayQt:'일요일 QT',rules:'완료 기준',completedRules:'달성 당시 기준',sessions:'',lastRange:'말씀 범위',start:'시작 절',end:'끝 절'};
+  const labels={profile:'계정',chapters:'QT',reading:'말씀 읽기',legacyEntries:'이전 묵종',observation:'관찰',interpretation:'해석',application:'적용',completed:'완료',completedSteps:'QT 진행',name:'이름',avatar:'캐릭터',theme:'기본 색',decorations:'꾸미기',owned:'구매한 아이템',equipped:'적용한 아이템',qtBookId:'QT',readingBookId:'말씀',dailyGoal:'목표',completionRule:'완료 조건',skipSundayQt:'일요일 QT',rules:'완료 기준',completedRules:'달성 당시 기준',sessions:'',lastRange:'말씀 범위',start:'시작 절',end:'끝 절'};
   return path.map(key=>labels[key]??(CHAPTER_BY_ID.has(key)?`${CHAPTER_BY_ID.get(key).book} ${CHAPTER_BY_ID.get(key).chapter}장`:key)).filter(Boolean).join(' · ');
 }
 function cloudAccountHTML() {
@@ -488,6 +490,7 @@ document.addEventListener('quolingo:install-state',()=>{
   const section=document.querySelector('#install-app');if(section)section.innerHTML=QuolingoInstall.html();
 });
 function loadAccountRecords() {
+  shopPreview=null;
   data=load(KEY);legacy=load(LEGACY_KEY);readingData=load(READING_KEY);profile=normalizedProfile(load(PROFILE_KEY));migrateQTEntries();
 }
 async function startCloudAccount() {
@@ -517,6 +520,81 @@ async function startCloudAccount() {
     setInterval(()=>{if(!document.hidden&&cloudAccount.status!=='conflict')void cloudAccount.sync();},30000);
   }
 }
+function diamondBalance() {return QuolingoDecor.balance(allTimeCount(),profile.decorations);}
+let shopCategory='background',shopCharacter='ko',shopPreview=null;
+function shopSlot() {return shopCategory==='accessory'?shopCharacter:shopCategory;}
+function accessoryArt(id) {
+  if(id==='ribbon')return '<path d="M34 26C8 3 1 13 7 40c8 13 19-1 27-8 9 7 20 21 28 8 6-27-1-37-27-14" fill="#eea4b3" stroke="#865568" stroke-width="4" stroke-linejoin="round"/><ellipse cx="35" cy="28" rx="9" ry="11" fill="#fbc6d0" stroke="#865568" stroke-width="3"/>';
+  if(id==='flower')return '<g fill="#f7b2c4" stroke="#a3657f" stroke-width="2.5"><ellipse cx="35" cy="16" rx="11" ry="14"/><ellipse cx="52" cy="29" rx="14" ry="11"/><ellipse cx="45" cy="48" rx="11" ry="14"/><ellipse cx="23" cy="48" rx="11" ry="14"/><ellipse cx="16" cy="28" rx="14" ry="11"/></g><circle cx="35" cy="32" r="11" fill="#ffe196" stroke="#ba954e" stroke-width="3"/>';
+  if(id==='star')return '<path d="m35 3 9 19 21 3-15 15 4 21-19-10-19 10 4-21L5 25l21-3Z" fill="#ffe196" stroke="#b3923f" stroke-width="4" stroke-linejoin="round"/><path d="m30 23-9 6" stroke="#fff5c8" stroke-width="4" stroke-linecap="round"/>';
+  return '';
+}
+function characterAccessory(character,id) {
+  if(!id)return '';
+  const positions={muni:{ribbon:[180,222],flower:[250,33],star:[192,265]},ko:{ribbon:[86,177],flower:[157,38],star:[90,207]},tas:{ribbon:[140,124],flower:[232,15],star:[164,208]}};
+  const point=positions[character]?.[id];
+  return point?`<g class="character-accessory" data-accessory="${id}" transform="translate(${point.join(' ')})">${accessoryArt(id)}</g>`:'';
+}
+function landscapeArt(id) {
+  const art={
+    meadow:'<path d="M0 176Q100 90 215 166T600 145V300H0Z" fill="#9cbd8b"/><path d="M0 219Q170 132 330 210T600 188V300H0Z" fill="#679875"/><g fill="#e7f4e1"><ellipse cx="100" cy="56" rx="36" ry="11"/><ellipse cx="459" cy="76" rx="44" ry="12"/></g><g stroke="#4c775a" stroke-width="5"><path d="M56 202v-77m479 84v-99"/></g><g fill="#bad09a"><circle cx="56" cy="115" r="35"/><circle cx="535" cy="107" r="42"/></g><g fill="#ffe3b1"><circle cx="92" cy="242" r="5"/><circle cx="495" cy="230" r="5"/><circle cx="525" cy="256" r="4"/></g><g fill="#f6c4d0"><circle cx="80" cy="250" r="5"/><circle cx="510" cy="240" r="5"/><circle cx="110" cy="261" r="4"/></g>',
+    sunset:'<circle cx="440" cy="90" r="42" fill="#ffdf9b"/><path d="M0 190Q120 90 270 174T600 157V300H0Z" fill="#c38f98"/><path d="M0 237Q160 142 340 218T600 193V300H0Z" fill="#8c788c"/><path d="M48 74h68m-48 10h26m402 57h55" stroke="#ffdfcf" stroke-width="7" stroke-linecap="round"/><g fill="#e4bdad"><path d="M48 268q-8-35 0-48 8 13 0 48m19-4q-8-25 0-34 8 9 0 34m477 5q-8-35 0-48 8 13 0 48"/></g>',
+    starlight:'<path d="M470 38a35 35 0 1 0 36 48 35 35 0 0 1-36-48" fill="#ffe6b2"/><g fill="#fbeacb"><circle cx="85" cy="58" r="3"/><circle cx="175" cy="96" r="2"/><circle cx="280" cy="42" r="3"/><circle cx="389" cy="90" r="2"/><circle cx="553" cy="140" r="2"/><circle cx="56" cy="133" r="2"/></g><g stroke="#ead4fa" stroke-width="3" stroke-linecap="round"><path d="M150 33v13m-6-6h12m196 79v15m-7-7h14m164-13v11m-5-5h10"/></g><path d="M0 220Q120 126 260 210T600 179V300H0Z" fill="#555779"/><path d="M0 251Q170 180 342 247T600 229V300H0Z" fill="#3c4463"/>'
+  };
+  return art[id]?`<svg class="landscape-art" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${art[id]}</svg>`:'';
+}
+function decoratedScene(decorations=profile.decorations) {
+  const background=decorations.equipped.background;
+  return `<div class="decor-scene scene-${background||'default'}">${landscapeArt(background)}<div class="scene-ground"></div>${friendsArt('꾸민 공간에서 인사하는 뮤니, 코, 타스',null,decorations)}</div>`;
+}
+function shopItemPreview(item) {
+  if(item.category==='background')return `<div class="item-preview scene-${item.id}">${landscapeArt(item.id)}<span class="preview-house" aria-hidden="true">⌂</span></div>`;
+  if(item.category==='accessory')return `<div class="item-preview accessory-preview">${friendsArt(AVATARS[shopCharacter].name+' 소품 미리보기',shopCharacter,QuolingoDecor.preview(profile.decorations,shopCharacter,item.id))}</div>`;
+  return `<div class="item-preview frame-preview">${avatarFace(profile.avatar,QuolingoDecor.preview(profile.decorations,'frame',item.id))}</div>`;
+}
+function customize() {
+  const state=profile.decorations,slot=shopSlot(),balance=diamondBalance(),categories={background:'배경',accessory:'캐릭터 소품',frame:'프로필 테두리'};
+  const preview=shopPreview===null?state:QuolingoDecor.preview(state,slot,shopPreview);
+  const item=QuolingoDecor.items.find(item=>item.id===shopPreview);
+  const current=shopPreview===null?'지금 적용한 모습':`${item?.name||'기본 모습'} 미리보기`;
+  const baseName=shopCategory==='background'?'기본 배경':shopCategory==='accessory'?'소품 없이':'기본 테두리';
+  const applied=state.equipped[slot];
+  const outstanding=Math.max(0,QuolingoDecor.spent(state)-allTimeCount());
+  content.innerHTML=`<div class="shop-heading"><div><div class="eyebrow">MAKE IT YOURS</div><h1>꾸미기</h1></div><div class="shop-wallet" aria-label="사용 가능한 다이아 ${balance}개"><span aria-hidden="true">💎</span><strong>${balance.toLocaleString('ko-KR')}</strong><small>사용 가능</small></div></div><p class="shop-intro">말씀 1절 = 다이아 1개 · 구매한 아이템은 계속 사용할 수 있어요.</p>${outstanding?`<p class="shop-balance-note">읽기 기록 변경으로 차감할 다이아 ${outstanding}개가 남아 있어요. 새로 모은 다이아에서 먼저 차감돼요.</p>`:''}<section class="shop-stage" tabindex="-1" aria-label="꾸미기 미리보기">${decoratedScene(preview)}<div class="shop-stage-caption"><span>${current}</span>${shopPreview!==null?'<button class="text-button" data-action="shop-reset-preview">미리보기 닫기</button>':''}</div>${shopCategory==='frame'?`<div class="shop-profile-preview">${avatarFace(profile.avatar,preview)}<span>${escapeHTML(profile.name||'나의 프로필')}</span></div>`:''}</section><div class="shop-tabs" role="group" aria-label="아이템 종류">${Object.entries(categories).map(([id,name])=>`<button data-action="shop-category" data-category="${id}" aria-pressed="${shopCategory===id}">${name}</button>`).join('')}</div>${shopCategory==='accessory'?`<div class="shop-characters" role="group" aria-label="소품을 착용할 캐릭터">${Object.entries(AVATARS).map(([id,avatar])=>`<button data-action="shop-character" data-character="${id}" aria-pressed="${shopCharacter===id}">${avatarFace(id)}<span>${avatar.name}</span></button>`).join('')}</div><p class="shop-target">${AVATARS[shopCharacter].name}에게 적용 · 소품 하나를 구매하면 세 캐릭터가 함께 쓸 수 있어요.</p>`:''}<div class="shop-grid"><article class="shop-item shop-default"><div class="item-preview base-preview" aria-hidden="true">${shopCategory==='frame'?avatarFace(profile.avatar,QuolingoDecor.preview(state,'frame','')):shopCategory==='accessory'?friendsArt('기본 모습',shopCharacter,QuolingoDecor.preview(state,slot,'')):'<span>⌂</span>'}</div><div class="item-info"><h2>${baseName}</h2><p>기본 제공</p></div><div class="shop-item-actions"><button class="text-button" data-action="shop-preview" data-item="">미리보기</button><button id="shop-default" class="outline-button" data-action="shop-equip" data-item="" ${!applied?'disabled':''}>${!applied?'적용 중':'적용하기'}</button></div></article>${QuolingoDecor.items.filter(item=>item.category===shopCategory).map(item=>{
+    const owned=state.owned[item.id],equipped=applied===item.id,affordable=balance>=item.price;
+    return `<article class="shop-item ${equipped?'item-equipped':''}">${shopItemPreview(item)}<div class="item-info"><h2>${item.name}</h2><p>${owned?'내 아이템':`💎 ${item.price}`}</p></div><div class="shop-item-actions"><button class="text-button" data-action="shop-preview" data-item="${item.id}">미리보기</button><button id="shop-${item.id}" class="${owned?'outline-button':'primary'}" data-action="${owned?'shop-equip':'shop-buy'}" data-item="${item.id}" ${equipped||!owned&&!affordable?'disabled':''}>${equipped?'적용 중':owned?'적용하기':affordable?'구매하기':`💎 ${item.price-balance} 부족`}</button></div></article>`;
+  }).join('')}</div>`;
+}
+function refreshShopFocus(selector,showPreview=false) {
+  render('customize','replace');
+  const element=document.querySelector(selector);element?.focus({preventScroll:true});
+  if(showPreview)element?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+}
+function saveDecorations(decorations,message,id='') {
+  const next={...profile,decorations};
+  try {accountStore.setItem(PROFILE_KEY,JSON.stringify(next));}
+  catch {toast('아이템을 저장하지 못했어요. 다시 시도해 주세요.');return false;}
+  profile=next;shopPreview=null;render('customize','replace');
+  document.getElementById('shop-'+(id||'default'))?.focus({preventScroll:true});toast(message);return true;
+}
+function buyShopItem(id) {
+  const item=QuolingoDecor.items.find(item=>item.id===id),slot=shopSlot();
+  if(!item||item.category!==shopCategory)return;
+  const result=QuolingoDecor.purchase(profile.decorations,id,allTimeCount(),slot);
+  if(!result.ok){toast(result.reason==='owned'?'이미 구매한 아이템이에요.':'다이아가 부족해요.');return;}
+  const owner=accountStore.owner;
+  if(!window.confirm(`${item.name}을(를) 다이아 ${item.price}개로 구매하고 적용할까요?\n구매 후 잔액: 💎 ${diamondBalance()-item.price}`))return;
+  if(owner!==accountStore.owner)return;
+  // Validate again against current records before writing ownership and equipment together.
+  const latest=QuolingoDecor.purchase(profile.decorations,id,allTimeCount(),slot);
+  if(!latest.ok){toast('잔액이 변경됐어요. 다시 확인해 주세요.');return;}
+  saveDecorations(latest.value,`${item.name} 구매 완료!`,id);
+}
+function equipShopItem(id) {
+  const value=QuolingoDecor.equip(profile.decorations,shopSlot(),id);
+  if(value)saveDecorations(value,'꾸미기를 적용했어요.',id);
+}
+
 function account() {
   content.innerHTML=`<h1>계정</h1><section id="cloud-account" class="card cloud-account" aria-label="로그인과 동기화">${cloudAccountHTML()}</section><section class="profile-summary"><span class="profile-avatar" aria-hidden="true">${avatarFace(profile.avatar)}</span><div><h2>${escapeHTML(profile.name||'나의 프로필')}</h2><p>${cloudAccount?.user?'계정에 저장되는 프로필':'이 브라우저에 저장되는 프로필'}</p></div></section><form id="account-form" class="account-form"><label for="profile-name">이름</label><input id="profile-name" name="name" type="text" maxlength="20" required autocomplete="nickname" value="${escapeHTML(profile.name)}"><label for="qt-book">QT</label><select id="qt-book" name="qtBook">${bookOptions(profile.qtBookId)}</select><label for="reading-book">말씀</label><select id="reading-book" name="readingBook">${bookOptions(profile.readingBookId)}</select><label for="daily-goal">매일 말씀 읽기 목표 (장)</label><input id="daily-goal" name="dailyGoal" type="number" min="1" max="1189" step="1" required value="${profile.dailyGoal}"><label for="completion-rule">완료 조건</label><select id="completion-rule" name="completionRule">${[['both','QT와 말씀 목표 모두'],['qt','QT만'],['reading','말씀 목표만']].map(([value,label])=>`<option value="${value}" ${profile.completionRule===value?'selected':''}>${label}</option>`).join('')}</select><label class="toggle-setting" for="skip-sunday-qt"><span>일요일 QT 끄기</span><input id="skip-sunday-qt" name="skipSundayQt" type="checkbox" ${profile.skipSundayQt?'checked':''}></label><fieldset><legend>기본 색</legend><div class="theme-options">${Object.entries(THEMES).map(([key,value])=>`<label class="theme-option"><input type="radio" name="theme" value="${key}" ${profile.theme===key?'checked':''}><span><i style="--swatch:${value.color}" aria-hidden="true"></i>${value.name}</span></label>`).join('')}</div></fieldset><fieldset><legend>프로필 캐릭터</legend><div class="avatar-options">${Object.entries(AVATARS).map(([key,value])=>`<label class="avatar-option"><input type="radio" name="avatar" value="${key}" ${profile.avatar===key?'checked':''}><span>${avatarFace(key)}${value.name}</span></label>`).join('')}</div></fieldset><button type="submit" class="primary wide">저장</button></form><section id="install-app" class="card install-app" aria-label="앱 설치와 바로가기">${QuolingoInstall.html()}</section><a class="source-note" href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">성경 본문: 대한성서공회 개역한글판(1961)</a>`;
 }
@@ -573,6 +651,12 @@ document.addEventListener('click',e=>{
  if(b.dataset.action==='cloud-local')void cloudAccount.resolve('local');
  if(b.dataset.action==='cloud-remote')void cloudAccount.resolve('remote');
  if(b.dataset.action==='install-app')void QuolingoInstall.request();
+ if(b.dataset.action==='shop-category'&&['background','accessory','frame'].includes(b.dataset.category)){shopCategory=b.dataset.category;shopPreview=null;refreshShopFocus(`[data-action=shop-category][data-category=${shopCategory}]`);}
+ if(b.dataset.action==='shop-character'&&Object.hasOwn(AVATARS,b.dataset.character)){shopCharacter=b.dataset.character;shopPreview=null;refreshShopFocus(`[data-action=shop-character][data-character=${shopCharacter}]`);}
+ if(b.dataset.action==='shop-preview'){shopPreview=b.dataset.item;refreshShopFocus('.shop-stage',true);}
+ if(b.dataset.action==='shop-reset-preview'){shopPreview=null;refreshShopFocus('.shop-stage');}
+ if(b.dataset.action==='shop-buy')buyShopItem(b.dataset.item);
+ if(b.dataset.action==='shop-equip')equipShopItem(b.dataset.item);
  if(b.dataset.page){render(b.dataset.page);window.scrollTo({top:0,behavior:'instant'});}
  if(b.dataset.chapter)openChapter(b.dataset.chapter,Number(b.dataset.start),Number(b.dataset.end),b.dataset.date||today);
  if(b.dataset.action==='open-share')openShare();

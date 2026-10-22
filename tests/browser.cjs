@@ -101,7 +101,7 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   assert.equal(await p.locator('.reader-count').count(),0);assert.equal(await p.evaluate(()=>readChapters(selectedDate).length),1);
   await nav('activity');
   assert.match(await p.locator('#content').textContent(),/누적 5장/);
-  assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/125절/);
+  assert.match(await p.locator('.activity-stats .card').nth(1).textContent(),/125개/);
   await nav('home');
   assert.equal(await p.locator('.month-path .friend-character').count(),7);
   assert.equal(await p.locator('.week-companion .friends-cast').first().evaluate(el=>getComputedStyle(el).transform),'none');
