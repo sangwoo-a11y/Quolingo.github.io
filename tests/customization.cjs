@@ -10,7 +10,13 @@ const url=process.env.TEST_URL||'http://127.0.0.1:8080';
   const category=value=>p.locator(`[data-action=shop-category][data-category=${value}]`).tap();
   const character=value=>p.locator(`[data-action=shop-character][data-character=${value}]`).tap();
   const balance=()=>p.evaluate(()=>diamondBalance());
-  const totals=async value=>assert.deepEqual(await p.locator('[data-stat=total]').allTextContents(),[String(value),String(value)]);
+  const totals=async value=>{
+   const earned=await p.evaluate(()=>allTimeCount());
+   assert.deepEqual(await p.locator('[data-stat=total]').allTextContents(),[String(earned),String(earned)]);
+   assert.equal(await balance(),value);
+   for(const label of await p.locator('.diamond-stat').evaluateAll(els=>els.map(el=>el.getAttribute('aria-label'))))assert.equal(label,`그동안 읽은 말씀 ${earned}절`);
+   if(await p.locator('.shop-wallet').count())assert.equal(await p.locator('.shop-wallet strong').textContent(),value.toLocaleString('ko-KR'));
+  };
   const buy=async(id,accept=true)=>{p.once('dialog',d=>accept?d.accept():d.dismiss());await p.locator('#shop-'+id).tap();};
   await nav('customize');assert.equal(await p.locator('#shop-meadow').isDisabled(),true);
   await p.locator('[data-action=shop-preview][data-item=starlight]').tap();assert.equal(await p.locator('.shop-stage .scene-starlight').count(),1);await totals(0);
