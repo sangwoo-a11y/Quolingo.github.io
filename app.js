@@ -469,7 +469,7 @@ async function copyShareText() {
   try {
     if(!navigator.clipboard?.writeText)throw new Error('Clipboard unavailable');
     await navigator.clipboard.writeText(text);
-    document.querySelector('#share-feedback').textContent='복사했어요. 카카오톡 등에 붙여넣어 공유하세요.';
+    document.querySelector('#share-feedback').textContent='복사했어요.';
   } catch {
     const preview=document.querySelector('#share-preview');preview.focus();preview.select();
     document.querySelector('#share-feedback').textContent='내용을 선택했어요. 직접 복사해 공유해 주세요.';
