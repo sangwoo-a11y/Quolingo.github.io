@@ -53,7 +53,19 @@ const server=http.createServer((req,res)=>{
    assert.equal(await p.locator('#profile-name').inputValue(),'작성 중인 이름');
    assert.equal(await p.evaluate(()=>localStorage.getItem('quolingo-profile-v1')),originalProfile);
    assert.equal(await p.locator('meta[name=theme-color]').getAttribute('content'),color);
+   const themed=await cdp.send('Page.getAppManifest');assert.deepEqual(themed.errors,[]);
+   const data=JSON.parse(themed.data);assert.equal(data.theme_color,color);
+   for(const field of ['id','scope','start_url'])assert.equal(new URL(data[field],themed.url).href,new URL(manifest[field],app.url).href);
+   assert.deepEqual(data.icons,manifest.icons);
+   assert.equal(await p.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor),`rgb(${[1,3,5].map(i=>parseInt(color.slice(i,i+2),16)).join(', ')})`);
+
   }
+  await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets:{top:0,right:0,bottom:24,left:0}});
+  assert.equal(await p.locator('.sidebar').evaluate(el=>getComputedStyle(el).height),'97px');
+  assert.equal(await p.locator('.sidebar').evaluate(el=>getComputedStyle(el,'::after').height),'24px');
+  assert.equal(await p.locator('.sidebar').evaluate(el=>getComputedStyle(el,'::after').backgroundColor),'rgb(184, 170, 214)');
+  const menu=await p.locator('.sidebar').boundingBox();assert.equal(menu.y+menu.height,844);
+  await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets:{top:0,right:0,bottom:0,left:0}});
   await p.locator('.nav[data-page=home]').click();assert.equal(await p.evaluate(()=>document.documentElement.dataset.theme),'apricot');
   await p.locator('.nav[data-page=account]').click();assert.equal(await p.locator('input[name=theme][value=apricot]').isChecked(),true);
   assert.equal(await p.locator('#qt-book').inputValue(),'joshua');assert.equal(await p.locator('#reading-book').inputValue(),'joshua');

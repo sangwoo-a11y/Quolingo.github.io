@@ -44,6 +44,8 @@ function applyTheme(themeId=profile.theme) {
   root.style.setProperty('--accent',theme.color);root.style.setProperty('--accent-shadow',theme.shadow);
   palette.forEach((_,i)=>{const tone=palette[(index+i)%palette.length];root.style.setProperty(`--week-${i}-color`,tone.color);root.style.setProperty(`--week-${i}-shadow`,tone.shadow);});
   document.querySelector('meta[name="theme-color"]').content=theme.color;
+  const manifest=document.querySelector('link[rel=manifest]'),href=themeId==='apricot'?'manifest.webmanifest':`manifest-${themeId}.webmanifest`;
+  if(manifest.getAttribute('href')!==href)manifest.setAttribute('href',href);
 }
 applyTheme();
 // Keep existing chapter journals as full-chapter sessions; retain original fields.
@@ -478,7 +480,7 @@ async function copyShareText() {
 async function sendShare() {
   if(!shareSnapshot||shareBusy)return;
   if(typeof navigator.share!=='function'){await copyShareText();return;}
-  const payload={title:`${shareSnapshot.date} 묵종 · ${shareSnapshot.reference}`,text:document.querySelector('#share-preview').value};
+  const payload={text:document.querySelector('#share-preview').value};
   setShareBusy(true);
   try {
     await navigator.share(payload);

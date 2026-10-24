@@ -1,7 +1,9 @@
-const CACHE='quolingo-static-20261023-1';
+const CACHE='quolingo-static-20261024-1';
 const SCOPE=new URL('./',self.location.href);
 const FILES=[
   'index.html','style.css','app.js','pwa.js','manifest.webmanifest',
+  'manifest-sunshine.webmanifest','manifest-sand.webmanifest','manifest-sky.webmanifest',
+  'manifest-rose.webmanifest','manifest-lavender.webmanifest',
   'old-testament.js','new-testament.js','chapters.js','progress.js','sharing.js',
   'bible-editions.js','bible-data/nkrv.json','bible-data/rnksv.json','cloud.js','bible-reading.js','customization.js','supabase-config.js','vendor/supabase-2.118.0.js',
   'assets/character-parts.png','assets/friends.png','assets/app-icon-192.png',

@@ -157,3 +157,11 @@
 .scripture-status .primary{margin:20px auto 10px}.scripture-status .text-button{display:block;margin:0 auto}
 .scripture-heading{font-size:14px;font-weight:700;color:var(--accent);margin:24px 0 10px}
 .verse-row>span:last-child{white-space:pre-line}
+
+/* Extend the selected theme behind mobile gesture/navigation safe areas. */
+html{background:var(--accent)}body{min-height:100dvh}
+@media(max-width:580px){
+ .sidebar{height:calc(73px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px)}
+ .sidebar::after{content:'';position:absolute;left:0;right:0;bottom:0;height:env(safe-area-inset-bottom,0px);background:var(--accent);pointer-events:none}
+ #toast{bottom:calc(85px + env(safe-area-inset-bottom,0px))}
+}

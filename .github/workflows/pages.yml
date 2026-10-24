@@ -22,6 +22,7 @@ jobs:
         run: |
           mkdir -p _site/assets _site/vendor _site/bible-data
           cp index.html style.css app.js pwa.js sw.js manifest.webmanifest chapters.js old-testament.js new-testament.js progress.js sharing.js bible-reading.js bible-editions.js customization.js cloud.js supabase-config.js THIRD_PARTY_NOTICES.md _site/
+          cp manifest-*.webmanifest _site/
           cp bible-data/*.json _site/bible-data/
           cp assets/*.png _site/assets/
           cp vendor/supabase-2.118.0.js vendor/SUPABASE-LICENSE _site/vendor/
