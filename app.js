@@ -328,18 +328,35 @@ function positionCompanions() {
   });
 }
 window.addEventListener('resize',positionCompanions);
+function qtPassageDefault(date) {
+  const allowed=new Set(qtChapters().map(c=>c.id));
+  const candidates=(day,preferDraft=false)=>Object.entries(data[day]||{}).reverse().flatMap(([id,entry])=>{
+    if(!allowed.has(id))return [];
+    const c=CHAPTER_BY_ID.get(id),sessions=Object.values(entry?.sessions||{}).filter(r=>validRange(c,r?.start,r?.end)&&
+      (r.completed||r.completedSteps>0||r.read?.length||fields.some(field=>String(r[field]||'').trim())));
+    const last=sessions.find(r=>r.start===entry.lastRange?.start&&r.end===entry.lastRange?.end)||sessions.at(-1);
+    const recent=preferDraft&&last?.completed?sessions.filter(r=>!r.completed).at(-1)||last:last;
+    return recent?[{id,start:recent.start,end:recent.end,unfinished:!recent.completed}]:[];
+  });
+  const current=candidates(date,true);
+  if(current.length)return current.find(passage=>passage.unfinished)||current[0];
+  for(const day of Object.keys(data).filter(day=>validDay(day)&&day<date).sort().reverse()){
+    const previous=candidates(day);if(previous.length)return previous[0];
+  }
+  return {id:qtChapters()[0].id};
+}
 function openDay(date) {
   if(!validDay(date)||date>today)return;
   if(mode==='reading'){selectedDate=date;selected=(readingChapters().find(c=>!readChapters(date).includes(c.id))||readingChapters()[0]).id;render('wordSelection');window.scrollTo({top:0,behavior:'instant'});return;}
   if(dailyState(date).qtOff)return;
-  const saved=qtChapters().find(c=>Object.values(record(c.id,date).sessions||{}).some(r=>!r.completed&&(r.read?.length||fields.some(f=>r[f])))) || qtChapters().find(c=>record(c.id,date).lastRange) || qtChapters()[0];
-  openChapter(saved.id,undefined,undefined,date);
+  const saved=qtPassageDefault(date);
+  openChapter(saved.id,undefined,undefined,date,saved);
 }
-function openChapter(id, start, end, date=today) {
+function openChapter(id, start, end, date=today, prefill=null) {
   if (!CHAPTERS.some(c=>c.id===id)||!validDay(date)||date>today) return;
   if(dailyState(date).qtOff){toast('일요일은 QT 쉬는 날이에요.');return;}
   selectedDate=date; selected=id; stage=0;
-  const last=record().lastRange;
+  const last=prefill&&validRange(chapter(),prefill.start,prefill.end)?prefill:record().lastRange;
   const resume=validRange(chapter(),start,end);
   rangeStart=resume?start:validRange(chapter(),last?.start,last?.end)?last.start:1;
   rangeEnd=resume?end:validRange(chapter(),last?.start,last?.end,profile.bibleVersion)?last.end:BibleReading.count(chapter(),profile.bibleVersion);
